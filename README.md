@@ -123,10 +123,9 @@ API_KEYS:
 
 ## 套件源（DSM 套件中心自动更新）
 
-Release 除安装包外还带一个 `sspks-index.json`（由
-[`publish-package-source.yml`](.github/workflows/publish-package-source.yml) 调用
-`.sspks/tools/index.py` 生成，含内嵌图标与精确 md5）。`sspks-cf` 的 Cloudflare Worker
-每 5 分钟拉取它并同步到 R2，DSM 套件中心添加下面的来源后可直接搜索/更新本套件：
+`sspks-cf` 的 Cloudflare Worker 每 5 分钟检查本仓最新 Release，自动把 `.spk` 同步到 R2。
+Worker 直接解析 SPK 内的 `INFO` 与图标、并从 R2 ETag 取 md5，**本仓不需要生成任何索引文件**
+（没有 `.sspks/`、也没有额外的发布 workflow）。DSM 套件中心添加下面的来源后可直接搜索/更新本套件：
 
 ```
 https://ssp.dnof.net/
@@ -135,7 +134,7 @@ https://ssp.dnof.net/
 - 只跟随「最新正式 Release」：alpha/beta 预发布不会进入套件源
 - 索引/安装包都由 Cloudflare 与 R2 提供，DSM 不直连 GitHub（国内网络更稳）
 - 同步记录：`/health` 的 `last_sync`；手动触发 `/sync`（需 `x-sync-token`）
-- 同步代码在 `sspks-cf/src/sync.js`，索引器为 `sspks-cf/tools/index.py` 的副本
+- 同步代码在 `sspks-cf/src/sync.js`；无 bundle 时的解析器为 `sspks-cf/src/autoindex.js`
 
 ## 构建与发布
 
