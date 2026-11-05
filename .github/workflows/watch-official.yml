@@ -1,12 +1,13 @@
 name: Watch official DSH releases
 
-# ── 官方更新自动对齐（用户 2026-10-09 定：轮询 30 分钟；构建成功后暂停 6 小时）──────────
+# ── 官方更新自动对齐（轮询 30 分钟；自建仓 2026-11-05：去掉「成功后暂停 6 小时」）──────
 # 为什么用轮询：官方不会给我们发 webhook，轮询是唯一可行的自动对齐手段；代价极小 ——
 #   每 30 分钟一次 api.github.com 调用（实测 1~4 秒），且只在"确实需要构建"时才触发。
 # 判定是无状态的（不依赖任何额外存储），三个条件全部满足才触发：
 #   ① 官方最新 tag ≠ 本仓最新 Release tag（还没对齐）
 #   ② 当前没有构建在跑（build.yml 是 cancel-in-progress: true，插队会把它取消掉）
-#   ③ 距最近一次【成功】构建 ≥ 6 小时（用户口径：成功后暂停 6 小时）
+#   ③ 同一版本连续失败 < 3 次（成功不节流：上游一发新版立刻追；只对卡住的版本刹车，
+#      否则没有冷却时一个编不过的版本会被每 30 分钟重派一次，几天就能烧光 Actions 额度）
 # 与 build.yml 的"方案 B（失败时自动学习依赖并入库 + 自动重建）"配套，形成无人值守闭环。
 
 on:
@@ -63,28 +64,43 @@ jobs:
             exit 0
           fi
 
-          # ④ 成功后暂停 6 小时（21600 秒）
-          LAST_OK="$(curl -sS --max-time 20 "${AUTH[@]}" \
-                     "$API/actions/workflows/build.yml/runs?status=success&per_page=1" \
-                     | python3 -c 'import sys,json;r=(json.load(sys.stdin).get("workflow_runs") or [{}])[0];print(r.get("updated_at") or r.get("created_at") or "")' 2>/dev/null || true)"
-          if [ -n "$LAST_OK" ]; then
-            AGE=$(( $(date -u +%s) - $(date -u -d "$LAST_OK" +%s) ))
-            echo "最近一次成功构建: $LAST_OK（$((AGE/3600)) 小时 $((AGE%3600/60)) 分钟前）"
-            if [ "$AGE" -lt 21600 ]; then
-              echo "… 距上次成功不足 6 小时 → 按口径暂停，本次跳过"
+          # ④ 同一版本连续失败保护（2026-11-05 去掉 6 小时冷却后必须防死循环）
+          #   无节流时，某版真编不过会每 30 分钟被重派一次（每次 >10 分钟）→ 数天烧光额度。
+          #   口径：成功不节流（上游一发新版立刻追）；只对【同一个版本】刹车 ——
+          #   以官方该 tag 的发布时间为窗口统计失败次数，≥3 次即暂停；
+          #   上游发下一版时 published_at 变新 → 窗口自然重置，自动恢复追版。
+          AUTH2=(-H "Accept: application/vnd.github+json")
+          [ -n "${GH_TOKEN:-}" ] && AUTH2+=(-H "Authorization: Bearer $GH_TOKEN")
+          PUB="$(curl -sS --max-time 20 "${AUTH2[@]}" \
+                 "https://api.github.com/repos/deepseek-ai/deepseek-harness/releases/tags/$OFFICIAL" \
+                 | python3 -c 'import sys,json;print((json.load(sys.stdin) or {}).get("published_at",""))' 2>/dev/null || true)"
+          echo "该版本发布时间: ${PUB:-（取不到）}"
+          if [ -n "${PUB:-}" ]; then
+            FAILS="$(curl -sS --max-time 25 "${AUTH[@]}" \
+                      "$API/actions/workflows/build.yml/runs?per_page=100" \
+                    | python3 -c 'import sys,json;d=json.load(sys.stdin) or {};rs=d.get("workflow_runs") or [];print(sum(1 for r in rs if (r.get("created_at") or "")>=sys.argv[1] and r.get("conclusion")=="failure"))' "$PUB" 2>/dev/null || echo 0)"
+            echo "该版本发布以来失败次数: ${FAILS:-0}（阈值 3）"
+            if [ "${FAILS:-0}" -ge 3 ]; then
+              echo "… 同一版本已连续失败 ≥3 次 → 停止自动对齐，避免每 30 分钟重复构建烧额度"
+              echo "   处置：修好后手动 workflow_dispatch（dsh_tag=$OFFICIAL），或等上游发下一版。"
               exit 0
             fi
           fi
 
-          echo "… 判定：需要构建（官方 $OFFICIAL ≠ 本仓 $MINE，且已过 6 小时窗口）…"
+          echo "… 判定：需要构建（官方 $OFFICIAL ≠ 本仓 $MINE，且该版本未连续失败 3 次）…"
           echo "need=yes" >> "$GITHUB_OUTPUT"
+          echo "official=$OFFICIAL" >> "$GITHUB_OUTPUT"
 
       - name: 触发构建（对齐官方 tag）
         if: steps.decide.outputs.need == 'yes'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.decide.outputs.official }}
         run: |
           set -e
+          # ★ 显式钉住 dsh_tag（2026-11-05）：① 避免判定与真正构建之间又出新版导致版本漂移；
+          #   ② build.yml 的 run-name 会带上该 tag，看门狗靠它统计"同一版本连续失败次数"。
+          echo "  目标官方 tag: $TAG"
           # ★ 必须【两种架构都派发】（2026-10-18 真机 bug ✗）
           #   原来只发 {"ref":"main"} ✗ → arch 用默认 x86_64 ✗ → 自动构建永远只出 x86 ✗，
           #   新版本 Release 里没有 ARM 包 ✗（实测 dsh-v0.2.1-rc.1 / rc.2 只有 2 个 x86 资产 ✗）
@@ -94,5 +110,5 @@ jobs:
             -H "Authorization: Bearer $GH_TOKEN" \
             -H "Accept: application/vnd.github+json" \
             "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/workflows/build.yml/dispatches" \
-            -d "{\"ref\":\"main\",\"inputs\":{\"arch\":\"$ARCH\"}}"
+            -d "{\"ref\":\"main\",\"inputs\":{\"arch\":\"$ARCH\",\"dsh_tag\":\"$TAG\"}}"
           done

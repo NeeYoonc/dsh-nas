@@ -2,9 +2,11 @@ name: Build SPK + FPK (DeepSeekHarness-NAS)
 
 on:
   # 2026-10-09：删除「每日 04:00 UTC」定时触发（用户口径）。
-  #   原因：看门狗 watch-official.yml 每 30 分钟比对官方 tag，且**成功后暂停 6 小时**；
-  #   而每日 cron 是【无条件】构建 → 若上次成功在 1 小时前，它照样跑 → 直接破坏 6 小时规则。
-  #   看门狗本身就是 48 次/天的兜底，cron 的兜底价值已归零；且同一 tag 重建只会浪费 20 分钟。
+  #   原因：看门狗 watch-official.yml 每 30 分钟比对官方 tag 并自动对齐；
+  #   而每日 cron 是【无条件】构建 → 同一 tag 会被重复编一次（浪费约 20 分钟）。
+  #   看门狗本身就是 48 次/天的兜底，cron 的兜底价值已归零。
+  #   2026-11-05（自建仓）：看门狗的「成功后暂停 6 小时」已去掉 —— 改为成功不节流、
+  #   仅对同一版本连续失败 ≥3 次刹车。cron 仍然不需要（它只会重复编同一 tag）。
   #   现在触发只剩：① 看门狗自动对齐 ② Actions 页手动 workflow_dispatch ③ 推送 v* tag。
   workflow_dispatch:          # 手动触发（Actions 页点按钮）
     inputs:
