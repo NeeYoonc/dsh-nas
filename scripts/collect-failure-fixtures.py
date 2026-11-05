@@ -26,7 +26,7 @@ token：优先环境变量 GH_TOKEN / GITHUB_TOKEN；否则读 工作区/config.
 """
 import argparse, json, os, re, subprocess, sys
 
-REPO = os.environ.get('GH_REPO', 'EIGHTfs/DeepSeekHarness-NAS')
+REPO = os.environ.get('GH_REPO', 'NeeYoonc/dsh-nas')
 API = 'https://api.github.com/repos/' + REPO
 
 # 学习器关心的模式（与 learn-prune-whitelist.sh 的规则对齐；新增规则时这里同步补）

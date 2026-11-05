@@ -17,7 +17,7 @@
 # 【特点】
 #   · 不需要 git 二进制、不需要工作区写权限（读文件即可）
 #   · **原子多文件提交**（一次 commit 覆盖全部改动）
-#   · author/committer 固定为 EIGHTfs（用户口径）
+#   · author/committer 固定为 NeeYoonc（本仓口径）
 #   · 快进失败（远端有新提交）时自动重取 HEAD 重试
 #
 # 【用法】
@@ -29,9 +29,9 @@
 #===============================================================================
 import base64, json, os, sys, time, urllib.request, urllib.error
 
-OWNER, REPO, BRANCH = "EIGHTfs", "DeepSeekHarness-NAS", "main"
-AUTHOR_NAME = "EIGHTfs"
-AUTHOR_EMAIL = "EIGHTfs@users.noreply.github.com"
+OWNER, REPO, BRANCH = "NeeYoonc", "dsh-nas", "main"
+AUTHOR_NAME = "NeeYoonc"
+AUTHOR_EMAIL = "NeeYoonc@users.noreply.github.com"
 
 
 def token():

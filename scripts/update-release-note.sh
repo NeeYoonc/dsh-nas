@@ -31,7 +31,7 @@ done
 
 TOKEN="${GH_TOKEN:-${GITHUB_TOKEN:-}}"
 [ -n "$TOKEN" ] || { echo "✗ 缺少 GH_TOKEN / GITHUB_TOKEN" >&2; exit 1; }
-REPO="${GITHUB_REPOSITORY:-EIGHTfs/DeepSeekHarness-NAS}"
+REPO="${GITHUB_REPOSITORY:-NeeYoonc/dsh-nas}"
 API="https://api.github.com/repos/$REPO"
 
 if [ -z "$TAG" ]; then

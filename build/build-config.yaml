@@ -28,8 +28,8 @@ defaults:
   desc_short: DeepSeek Harness Web UI
   maintainer: DeepSeek AI
   maintainer_url: https://github.com/deepseek-ai/deepseek-harness
-  distributor: EIGHTfs
-  distributor_url: https://github.com/EIGHTfs/DeepSeekHarness-NAS
+  distributor: NeeYoonc
+  distributor_url: https://github.com/NeeYoonc/dsh-nas
   source: thirdparty
   # 平台最低版本（各平台段可覆盖；SPK 用 os_min_ver 格式，FPK 用 os_min_version）
   os_min_version: 1.1.0

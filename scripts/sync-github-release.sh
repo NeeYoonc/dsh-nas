@@ -7,7 +7,7 @@
 #   ./scripts/sync-github-release.sh                        # 前台跑一轮（默认单次）
 #   ./scripts/sync-github-release.sh --loop 300             # 后台式轮询，每 300 秒一轮
 #   ./scripts/sync-github-release.sh --tag dsh-v0.1.5-rc.2  # 只同步指定 tag
-#   ./scripts/sync-github-release.sh --repo owner/name      # 指定仓库（默认 EIGHTfs/DeepSeekHarness-NAS）
+#   ./scripts/sync-github-release.sh --repo owner/name      # 指定仓库（默认 NeeYoonc/dsh-nas）
 #   ./scripts/sync-github-release.sh --log 路径/文件        # 指定日志文件（默认 release-sync.log）
 #   ./scripts/sync-github-release.sh --start/--stop/--restart/--status   # 服务化启停（PID 在项目根）
 #
@@ -22,11 +22,11 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-DEFAULT_REPO="EIGHTfs/DeepSeekHarness-NAS"
+DEFAULT_REPO="NeeYoonc/dsh-nas"
 DEFAULT_OUT="$PROJECT_ROOT/release"
 DEFAULT_LOG="$SCRIPT_DIR/release-sync.log"
 DEFAULT_INTERVAL=300
-PID_FILE="$PROJECT_ROOT/DeepSeekHarness-NAS-release-sync.pid"
+PID_FILE="$PROJECT_ROOT/dsh-nas-release-sync.pid"
 
 # ---------- token 解析（优先 $GITHUB_TOKEN，其次 git-push 凭据文件） ----------
 TOKEN=""
@@ -86,7 +86,7 @@ sync_once() {
 import json, os, re, sys, time, urllib.request
 
 TOKEN = os.environ.get("TOKEN", "")
-REPO  = os.environ.get("REPO", "EIGHTfs/DeepSeekHarness-NAS")
+REPO  = os.environ.get("REPO", "NeeYoonc/dsh-nas")
 OUT   = os.environ.get("OUT", "release")
 TAG_FILTER = os.environ.get("TAG_FILTER", "")
 

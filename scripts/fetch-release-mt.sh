@@ -28,7 +28,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WS="$(cd "$SCRIPT_DIR/.." && pwd)"
-REPO="${RELEASE_REPO:-EIGHTfs/DeepSeekHarness-NAS}"
+REPO="${RELEASE_REPO:-NeeYoonc/dsh-nas}"
 # token 配置文件候选（兜底路径；按存在性取第一个，不打印内容）。取值优先级见下方 TOKEN= 那行
 TOKEN_FILES=(
   "${DSH_TOKEN_FILE:-}"

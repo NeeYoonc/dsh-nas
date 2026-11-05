@@ -1,0 +1,37 @@
+# NOTICE — 来源与派生关系
+
+本仓库 **`NeeYoonc/dsh-nas`** 是下述工程的副本与二开，不是任何上游方发布的官方发行版。
+
+## 1. 直接上游：NAS 打包工程
+
+- 仓库：https://github.com/EIGHTfs/DeepSeekHarness-NAS
+- 作者：EIGHTfs
+- 内容：DeepSeek Harness（dsh）的 NAS 原生打包工程（群晖 DSM `.spk` / 飞牛 fnOS `.fpk`，无需 Docker）
+
+本仓在提交 `a61dd76` 处**全量复制**（含 `main` 分支与全部 25 个 tag、完整提交历史），此后改动由本仓独立维护。
+与上游的差异只应出现在本仓自己的提交里；需要上游更新的部分通过 `upstream` 远端手动同步。
+
+## 2. 被打包的上游框架
+
+- 仓库：https://github.com/deepseek-ai/deepseek-harness
+- Copyright (c) 2026 DeepSeek AI
+- 内容：DeepSeek Harness（dsh）—— 由 DeepSeek AI 开源的 Agent 智能体框架
+
+本仓的打包产物内嵌的是该框架的开源构建结果。
+
+## 3. 许可
+
+依上游 README 声明，上述工程以 **MIT License** 提供，完整文本见 [LICENSE](LICENSE)。
+本仓保留原版权声明，并声明自身修改部分的版权。
+
+## 4. 商标与名称
+
+- 「DeepSeek」「DeepSeek Harness」为 DeepSeek AI 的项目名/商标。
+- 本仓为第三方自建副本，**与 DeepSeek AI、EIGHTfs 均无隶属或授权关系**，不代表其立场。
+- 套件名 / 服务名 / 安装路径仍沿用 `DeepSeekHarness-NAS`，**仅为兼容既有安装与数据目录**，不表示本仓是官方版本。
+
+## 5. 构建产物与免责
+
+- 本仓 Release 中的 `.spk` / `.fpk` 由本仓 GitHub Actions 自行构建，**不是**上游官方发布物。
+- 构建脚本、裁剪白名单、运行时依赖均继承自上游；安装与使用风险由使用者自行承担。
+- 如需官方产物，请使用上游仓库的发布渠道。

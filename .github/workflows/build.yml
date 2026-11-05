@@ -113,8 +113,8 @@ jobs:
             echo "… 白名单无变化（本次失败不是缺包导致）→ 不提交、不重建"
             exit 0
           fi
-          git config user.name EIGHTfs
-          git config user.email EIGHTfs@users.noreply.github.com
+          git config user.name NeeYoonc
+          git config user.email NeeYoonc@users.noreply.github.com
           git add build/build-prune-whitelist.json
           git commit -q -m "chore(prune): CI 自动学习并入构建必需包（方案 B）"
           git --no-pager diff --stat HEAD~1 -- build/build-prune-whitelist.json || true

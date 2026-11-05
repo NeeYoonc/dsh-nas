@@ -1,4 +1,12 @@
-# DeepSeekHarness-NAS
+# dsh-nas · DeepSeek Harness NAS 打包
+
+> **本仓是自建二开副本**：`NeeYoonc/dsh-nas`，基于 [EIGHTfs/DeepSeekHarness-NAS](https://github.com/EIGHTfs/DeepSeekHarness-NAS) 的群晖 Synology DSM `.spk` / 飞牛 fnOS `.fpk` 原生打包工程。
+> 上游智能体框架 DeepSeek Harness（dsh）由 [DeepSeek AI](https://github.com/deepseek-ai/deepseek-harness) 开源。
+> 来源与派生关系见 [NOTICE](NOTICE)，许可见 [LICENSE](LICENSE)。
+
+- **本仓 Release**：https://github.com/NeeYoonc/dsh-nas/releases
+- **上游仓库**：https://github.com/EIGHTfs/DeepSeekHarness-NAS
+- **套件名 / 安装路径保持 `DeepSeekHarness-NAS`**（与上游一致）：安装目录、服务名、数据目录都不变，可沿用现有 NAS 数据；仅代码与发布渠道由本仓独立维护。
 
 DeepSeek Harness（dsh）的 NAS 适配包：群晖 DSM `.spk` / 飞牛 fnOS `.fpk`，在 NAS 原生运行，无需容器。
 
@@ -191,6 +199,16 @@ API_KEYS:
 - [故障排查指南](docs/故障排查指南.md) — 症状 → 判据 → 处置
 - [CHANGELOG](docs/CHANGELOG.md) — 版本记录
 
-## 许可证
+## 许可证与来源
 
-MIT License - Copyright (c) 2026 DeepSeek AI
+本项目采用 **MIT License**，完整文本见 [LICENSE](LICENSE)；来源与派生关系见 [NOTICE](NOTICE)。
+
+| 层级 | 工程 | 版权 |
+|---|---|---|
+| 智能体框架 | [deepseek-ai/deepseek-harness](https://github.com/deepseek-ai/deepseek-harness) | Copyright (c) 2026 DeepSeek AI |
+| NAS 打包工程（直接上游） | [EIGHTfs/DeepSeekHarness-NAS](https://github.com/EIGHTfs/DeepSeekHarness-NAS) | Copyright (c) 2026 EIGHTfs |
+| 本仓（自建二开副本） | [NeeYoonc/dsh-nas](https://github.com/NeeYoonc/dsh-nas) | Copyright (c) 2026 NeeYoonc |
+
+> 本仓为第三方自建副本，与 DeepSeek AI、EIGHTfs 均无隶属关系；Release 产物由本仓自行构建，非上游官方发布物。
+> 代码中的套件名 `DeepSeekHarness-NAS` 沿用上游，仅为兼容既有安装路径与数据目录。
+
