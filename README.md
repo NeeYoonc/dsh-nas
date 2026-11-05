@@ -21,7 +21,7 @@ DeepSeek Harness（dsh）的 NAS 适配包：群晖 DSM `.spk` / 飞牛 fnOS `.f
 | 局域网限制 | 公网 IP 一律 403 提示页 | 内置，无需配置 |
 | 命令行 `dsh` / `pnpm` | 装完 SSH 直接敲，无需进套件目录 | `/usr/bin/dsh`、`/usr/bin/pnpm` |
 | 网页安装工具 | 已独立为单独仓库（远程装/卸/检/修，带历史） | `nas-pkg-installer` |
-| 自动构建发布 | 官方更新自动对齐构建，发 Release 双产物 | GitHub Actions |
+| 自动构建发布 | 官方更新自动对齐构建，发 Release 四产物（x86_64/arm64 × spk/fpk） | GitHub Actions |
 | 架构参数化 | 同一脚本出 x86_64 / arm64 包 | `build/build-config.yaml` 的 `defaults.arch` |
 
 ## 访问地址与端口
@@ -97,6 +97,13 @@ API_KEYS:
 ```
 
 发版走 GitHub Actions：推 tag、手动 `workflow_dispatch`（有 `arch`、`dsh_tag` 入参）、或由看门狗自动对齐官方 tag。
+
+**通道口径（本仓自定）**：
+
+- **只发正式版** —— 拉源码时自动跳过上游 `alpha` / `beta` tag（`DSH_ALLOW_PRERELEASE=1` 可临时放开），正式版 = `rc` 及以上（上游无 stable tag，`rc` 即最成熟通道）。
+- **架构成对** —— 正式版按 `x86_64` 与 `arm64` 各派发一次，同一 Release 下产出 **4 个产物**：`*_x86_64-<ver>.spk`、`*_x86-<ver>.fpk`、`*_armv8-<ver>.spk`、`*_arm-<ver>.fpk`。
+- **跟随上游** —— 看门狗每 30 分钟比对上游最新正式 tag 与本仓最新 Release tag；仅当「不相等 + 无构建在跑 + 距上次成功 ≥ 6 小时」时才自动派发双架构重建。
+
 
 ## 脚本与环境变量索引
 
