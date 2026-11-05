@@ -129,7 +129,7 @@ Release 除安装包外还带一个 `sspks-index.json`（由
 每 5 分钟拉取它并同步到 R2，DSM 套件中心添加下面的来源后可直接搜索/更新本套件：
 
 ```
-https://sspks-cf.2361472081.workers.dev/
+https://ssp.dnof.net/
 ```
 
 - 只跟随「最新正式 Release」：alpha/beta 预发布不会进入套件源
