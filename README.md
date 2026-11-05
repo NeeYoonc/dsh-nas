@@ -47,6 +47,40 @@ http://<NAS-IP>:3080      # 飞牛入口；容器页：群晖 30802 / 飞牛 308
 - 卸载走 Web UI，命令行卸载会被平台拒绝。
 - 回退旧版：Web UI 卸载（保持默认「保留数据」）→ 装旧版包 → 直接启动。数据按版本目录隔离，各版本用各自的配置与会话。
 
+## 账号登录（仅回环地址可用）
+
+**症状**：用局域网 IP 或域名打开 Web UI，点「登录」一直弹「登录失败 / 操作未完成，请重试。」（只有「添加 API Key」「重新登录」两个按钮）；同一账号在 Windows 桌面端登录正常。
+
+**原因**：DSH 账号登录（Platform OAuth）只接受**回环 HTTP origin**（`localhost` / `127.0.0.1` / `[::1]`）作为回调地址。经反代、域名、HTTPS 或 `--trusted-host` 访问时，登录入口仍显示，但发起登录必然进入通用失败重试状态 —— 这是 DSH 的设计限制，**不是本包的问题**，换域名/上 HTTPS 也绕不过。
+
+**处置一：一次性回环登录（想保留账号登录时用）**
+
+Windows 管理员 PowerShell（不需要 NAS 开 SSH）：
+
+```powershell
+netsh interface portproxy add v4tov4 listenaddress=127.0.0.1 listenport=30800 connectaddress=<NAS-IP> connectport=30800
+```
+
+浏览器打开 `http://127.0.0.1:30800`（飞牛把 `30800` 换成 `3080`）完成登录；登录态保存在 NAS 上的那个 DSH 实例里，之后删掉转发、日常继续用 `http://<NAS-IP>:30800`：
+
+```powershell
+netsh interface portproxy delete v4tov4 listenaddress=127.0.0.1 listenport=30800
+```
+
+Linux/macOS 等价做法是 SSH 隧道（需 NAS 的 sshd 允许转发）：
+
+```bash
+ssh -N -L 30800:127.0.0.1:30800 <NAS用户>@<NAS-IP>
+```
+
+若报 `channel 2: open failed: administratively prohibited`，说明 NAS 侧 sshd 禁止了 TCP 转发（DSM 默认如此），改用上面的 `netsh`。
+
+**处置二：改用 API Key（长期 / 多设备推荐）**
+
+点弹窗里的「添加 API Key」，或按下方「配置模型」直接写配置文件。代价是拿不到账号登录才有的余额 / 赠送额度，但模型可正常使用。
+
+> 完整判据与更多细节见 [`docs/故障排查指南.md`](docs/故障排查指南.md) §2.5。
+
 ## 常用操作（start.sh）
 
 ```bash
