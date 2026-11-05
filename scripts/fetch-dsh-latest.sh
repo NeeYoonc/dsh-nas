@@ -112,8 +112,16 @@ pick_latest_tag() {
     return 1
   fi
   echo "$TAGS_JSON" | python3 -c '
-import sys, json, re
+import sys, json, re, os
 tags = [t["name"] for t in json.load(sys.stdin)]
+# 通道过滤（2026-11-05 自建仓定）：默认只认「正式版」= 非 alpha/beta 的 tag（rc 及以上）。
+#   上游没有 stable tag，rc 即最成熟通道；临时要开发版设 DSH_ALLOW_PRERELEASE=1。
+if os.environ.get("DSH_ALLOW_PRERELEASE", "0") != "1":
+    _formal = [t for t in tags if "-alpha" not in t and "-beta" not in t]
+    if _formal:
+        tags = _formal
+    else:
+        print("… 无 alpha/beta 之外的正式 tag，退回全部 tag（含开发版）", file=sys.stderr)
 def parse(v):
     v = re.sub(r"\A[^0-9]*", "", v)   # 去掉 dsh-v 等非数字前缀
     pre = ""

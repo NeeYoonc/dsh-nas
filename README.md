@@ -182,6 +182,7 @@ API_KEYS:
 | `DSH_CLIENT_VERSION` / `DSH_CLIENT_COMMIT_HASH` / `DSH_CLIENT_TITLE` | 打包注入 | 名牌小字版本与标题 |
 | `DSH_SLIM_SKIP_NATIVE` / `DSH_REPAIR_DRY_RUN` | `0` / `0` | 跳过 native 构建（留档脚本用）/ 守护只打印将停的 PID 不真停 |
 | `DS_FETCH_TOKEN` / `DS_FETCH_GIT_URL` / `DSH_GIT_MIRROR_PREFIX` | 空 / 官方仓库 / 空（关） | 拉源码 token（等价 `--token`）/ git 远端覆盖 / GitHub 镜像前缀（如 `https://gh-proxy.com/`） |
+| `DSH_ALLOW_PRERELEASE` | 空（关） | `1` = 拉源码时把 alpha/beta 开发版 tag 也纳入候选；默认只认**正式版**（rc 及以上，排除 alpha/beta） |
 | `NPM_REGISTRY_CANDIDATES` | 内置清单 | npm 源并发探测候选数组 |
 | `ARCH` / `BUILD_ARCH` | `x86_64` | 目标架构覆盖（`x86_64` / `arm64`） |
 | `APP_NAME` `D_SRC` `D_BUILD` `D_STAGING` `D_REL` `D_SCRIPTS` `D_ASSETS` | 读 config | 名称与工作区目录临时覆盖 |
