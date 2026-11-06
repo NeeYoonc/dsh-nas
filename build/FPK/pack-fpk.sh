@@ -654,10 +654,9 @@ install_callback() {
     [ -n "$VERSION" ] && break
   done
   [ -z "$VERSION" ] && VERSION="__FPK_VERSION__"
-  # 预建版本数据目录（安装期 /vol1/@appdata 属 root，应用用户无权限自建）
-  if [ -n "$VERSION" ]; then
-    mkdir -p "${TRIM_PKGVAR:-/vol1/@appdata/${APPNAME}}/${VERSION}" 2>/dev/null || true
-  fi
+  # 预建数据根（安装期 /vol1/@appdata 属 root，应用用户无权限自建）
+  # 2026-11-06 方案 C：数据不再按版本分子目录（与桌面端一致，只有一份 <数据根>/.dsh）。
+  mkdir -p "${TRIM_PKGVAR:-/vol1/@appdata/${APPNAME}}" 2>/dev/null || true
   # ── 重建打包期移除的软链（2026-10-09 实测必需，勿删）────────────────────────
   #   app.tgz 后处理会删掉全部 npm/pnpm 软链（不删则 fnOS 解压设 ACL 报
   #   acl_get_file failed，前端显示「设置目录权限失败」）；但 Node 靠这些链解析模块，
@@ -720,8 +719,11 @@ uninstall_callback() {
     echo "[uninstall_callback] wizard_delete_data=${DELETE_DATA:-<空>} VERSION=${VERSION:-<空>}"
   } >> "${TRIM_PKGVAR:-/var/apps/${APPNAME}}/uninstall-callback.trace" 2>/dev/null || true
   if [ "$DELETE_DATA" = "true" ]; then
-    # 用户选择彻底删除：只删本版本数据目录；父目录空则删父（仅剩一个版本时父目录即被删）
+    # 2026-11-06 方案 C：数据固定在数据根，「彻底删除」= 清用户数据 + 旧布局残留
     local PKG_ROOT="${TRIM_PKGVAR:-/vol1/@appdata/${APPNAME}}"
+    rm -rf "$PKG_ROOT/.dsh" "$PKG_ROOT/.config" "$PKG_ROOT/.local" 2>/dev/null
+    rm -f  "$PKG_ROOT/ports" "$PKG_ROOT/.dsh-migrated" 2>/dev/null
+    rm -f  "$PKG_ROOT"/*.pid "$PKG_ROOT"/*.log 2>/dev/null
     if [ -n "$VERSION" ] && [ -d "$PKG_ROOT/$VERSION" ]; then
       rm -rf "$PKG_ROOT/$VERSION" 2>/dev/null
     fi
@@ -730,7 +732,7 @@ uninstall_callback() {
     fi
   else
     {
-      echo "[uninstall_callback] 保留数据（wizard_delete_data=${DELETE_DATA:-<空>}）: ${TRIM_PKGVAR:-/vol1/@appdata/${APPNAME}}/${VERSION}"
+      echo "[uninstall_callback] 保留数据（wizard_delete_data=${DELETE_DATA:-<空>}）: ${TRIM_PKGVAR:-/vol1/@appdata/${APPNAME}}"
     } >> "${TRIM_PKGVAR:-/var/apps/${APPNAME}}/uninstall-callback.trace" 2>/dev/null || true
   fi
   exit 0

@@ -211,11 +211,13 @@ pkg_version_resolved() {
   echo "__FPK_VERSION__"
 }
 
-# 安装后初始化：版本隔离数据目录 + 权限修复 + dsh 命令软链
+# 安装后初始化：固定数据根 + 权限修复 + dsh 命令软链
+# 2026-11-06 方案 C：数据不再按版本分子目录（与桌面端一致，只有一份 <var>/.dsh），
+# 升级 / 卸载重装 / 回滚都读写同一份；这里只确保数据根存在并归位属主。
 setup_pkg_env() {
   local VER="$(pkg_version_resolved)"
-  mkdir -p "${PKG_VAR_DIR}/${VER}"
-  chown -R "${PACKAGE_NAME}:system" "${PKG_VAR_DIR}/${VER}" 2>/dev/null || true
+  mkdir -p "${PKG_VAR_DIR}"
+  chown -R "${PACKAGE_NAME}:system" "${PKG_VAR_DIR}" 2>/dev/null || true
   fix_ownership
   link_dsh_cmd
 }
@@ -230,13 +232,23 @@ setup_pkg_env() {
 #   「向导值 → 历史 ports 文件 → 打包默认」的最终值同步 ui/config，门户与服务恒一致。
 apply_wizard_ports() {
   local VER="$(pkg_version_resolved)"
-  local PORTS_FILE="${PKG_VAR_DIR}/${VER}/ports"
+  # 2026-11-06 方案 C：ports 固定写数据根 <var>/ports（不再按版本分子目录）；
+  #   首次升级时兼容读取旧布局 <var>/<版本>/ports 作为历史值。
+  local PORTS_FILE="${PKG_VAR_DIR}/ports"
+  local _HIST="" _f
+  if [ -f "$PORTS_FILE" ]; then
+    _HIST="$PORTS_FILE"
+  else
+    for _f in "${PKG_VAR_DIR}"/*/ports; do
+      [ -f "$_f" ] && { _HIST="$_f"; break; }
+    done
+  fi
   # 最终端口：① 历史 ports 文件（跨升级保留）→ ② 向导值覆盖 → ③ 打包默认兜底
   local _PP="" _DP="" _CP=""
-  if [ -f "$PORTS_FILE" ]; then
-    _PP="$(awk -F= '/^PROXY_PORT=/{print $2}' "$PORTS_FILE" 2>/dev/null)"
-    _DP="$(awk -F= '/^DSH_PORT=/{print $2}' "$PORTS_FILE" 2>/dev/null)"
-    _CP="$(awk -F= '/^CONTAINER_PORT=/{print $2}' "$PORTS_FILE" 2>/dev/null)"
+  if [ -n "$_HIST" ]; then
+    _PP="$(awk -F= '/^PROXY_PORT=/{print $2}' "$_HIST" 2>/dev/null)"
+    _DP="$(awk -F= '/^DSH_PORT=/{print $2}' "$_HIST" 2>/dev/null)"
+    _CP="$(awk -F= '/^CONTAINER_PORT=/{print $2}' "$_HIST" 2>/dev/null)"
   fi
   [ -n "${wizard_proxy_port:-}" ] && _PP="${wizard_proxy_port}"
   [ -n "${wizard_dsh_port:-}" ] && _DP="${wizard_dsh_port}"
@@ -246,7 +258,7 @@ apply_wizard_ports() {
   _CP="${_CP:-__SPK_CONTAINER_PORT__}"
 
   # 写 ports 文件（总是写，反映最终生效端口；服务 start-stop-status 优先读它）
-  mkdir -p "${PKG_VAR_DIR}/${VER}"
+  mkdir -p "${PKG_VAR_DIR}"
   {
     echo "# 生效端口（2026-10-02：向导值优先，其次历史保留，缺省打包默认）"
     echo "PROXY_PORT=${_PP}"
@@ -303,6 +315,11 @@ postreplace() {
 cleanup_uninstall() {
   local VER="$(pkg_version_resolved)"
   if [ "${wizard_delete_data:-false}" = "true" ]; then
+    # 2026-11-06 方案 C：数据固定在数据根（<var>/.dsh / .config / .local / ports / 日志），
+    # 「彻底删除」= 清掉这些用户数据；旧布局 <var>/<版本>/ 一并清（迁移前的残留）。
+    rm -rf "${PKG_VAR_DIR}/.dsh" "${PKG_VAR_DIR}/.config" "${PKG_VAR_DIR}/.local" 2>/dev/null
+    rm -f  "${PKG_VAR_DIR}/ports" "${PKG_VAR_DIR}/.dsh-migrated" 2>/dev/null
+    rm -f  "${PKG_VAR_DIR}"/*.pid "${PKG_VAR_DIR}"/*.log 2>/dev/null
     if [ -n "$VER" ] && [ -d "${PKG_VAR_DIR}/${VER}" ]; then
       rm -rf "${PKG_VAR_DIR}/${VER}" 2>/dev/null
     fi
@@ -310,7 +327,7 @@ cleanup_uninstall() {
       rm -rf "${PKG_VAR_DIR}" 2>/dev/null
     fi
   else
-    echo "[uninstall] 保留数据（wizard_delete_data=${wizard_delete_data:-false}）: ${PKG_VAR_DIR}/${VER}" >&2
+    echo "[uninstall] 保留数据（wizard_delete_data=${wizard_delete_data:-false}）: ${PKG_VAR_DIR}" >&2
   fi
   # 注册软链（/usr/syno/etc/packages/<pkg> → /volumeX/@appconf/<pkg>）及其指向目录
   if [ -e "/usr/syno/etc/packages/${PACKAGE_NAME}" ]; then
@@ -379,7 +396,7 @@ START_SCRIPT="${PACKAGE_BASE}/start.sh"
 #   ② 打包默认 target/var/ports（pack-spk.sh 依 build-config.yaml 生成）→ 回退
 PORT_FILE="${PACKAGE_BASE}/var/ports"
 # 数据目录版本隔离（与 installer pkg_version_resolved 同源：dsh → npm → top）
-for _pf in "${SYNOPKG_PKGVAR}"/*/ports "${SYNOPKG_PKGVAR}/ports"; do
+for _pf in "${SYNOPKG_PKGVAR}/ports" "${SYNOPKG_PKGVAR}"/*/ports; do
   [ -f "$_pf" ] && { PORT_FILE="$_pf"; break; }
 done
 if [ -f "$PORT_FILE" ]; then
