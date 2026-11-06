@@ -3,6 +3,10 @@
 > 本文件承载**历史更新**。README 只保留"现在是什么样、怎么用"，不再逐条记录演变过程。
 > 每条一行；同一日期内按"改动面"归类。**解释性内容见 `使用指南.md` / `构建与发布指南.md` / `打包规范.md` / `故障排查指南.md`。**
 
+## 2026-11-06
+- **套件升级不再丢配置**：`start.sh` 新增 `migrate_previous_version_data()` —— 新版本目录首次启动时，用 `cp -a --reflink=auto`（btrfs 秒级）从上一版本目录继承 `.dsh` / `.config` / `.local`，即插件、凭据、用户 patch、全局 CLI（pnpm 全局包）、插件状态与会话全部跟着升级走；旧目录原样保留可回滚，迁移只做一次（`.dsh-migrated` 标记），并清理旧锁/PID 防启动被挡。
+- 文档同步：`docs/使用指南.md` §7 说明迁移机制与「想从干净状态开始」的做法。
+
 ## 2026-11-05（自建仓 `dsh-nas`）
 - 仓库改为自建私有副本 `NeeYoonc/dsh-nas`（非 fork），补 `LICENSE` + `NOTICE`，README 标注来源与通道口径。
 - Release 通道口径：只发正式版（rc 及以上）；拉源码默认排除上游 alpha/beta（`DSH_ALLOW_PRERELEASE=1` 可放开）。

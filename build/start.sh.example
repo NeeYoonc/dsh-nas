@@ -222,6 +222,54 @@ fi
 #   的 CLI 场景（见 install_dsh_wrapper），服务侧不接受外部覆盖。
 export DSH_HOME="$DSH_HOME_DIR"
 
+# ---------- 升级迁移：从上一版本目录继承用户数据（2026-11-06）----------
+# 背景：数据按 <PKG_VERSION> 隔离，升级后新版本目录是空的 → 插件 / 凭据 / 用户 patch /
+#   全局 CLI / 插件状态 / 会话全部丢失 —— 这是「按版本隔离」的代价，用户口径要求修掉。
+# 方案：新版本目录【首次启动】时，把上一版本目录里的用户数据复制过来：
+#   /volume1 是 btrfs → `cp -a --reflink=auto` 秒级、几乎不占额外空间；非 btrfs 自动退化为普通复制。
+#   · 旧版本目录原样保留 → 回滚安全（想回去仍能回去）
+#   · 迁移只做一次（版本目录里写 .dsh-migrated 标记），之后升级不再重复
+#   · 只迁用户数据（.dsh / .config / .local），不动版本目录里的 PID / 日志 / tmp
+migrate_previous_version_data() {
+  [ -n "${DSH_HOME_PARENT:-}" ] || return 0
+  case "$DSH_HOME_PARENT" in */.dsh-home) return 0 ;; esac   # 纯目录部署不做
+  _mig_marker="$DSH_HOME_PARENT/.dsh-migrated"
+  [ -f "$_mig_marker" ] && return 0
+  _mig_root="$(dirname "$DSH_HOME_PARENT")"
+  _mig_cur="$(basename "$DSH_HOME_PARENT")"
+  # 同根下挑「含 .dsh 且最新」的其它版本目录作为迁移源
+  _mig_prev=""
+  for _d in "$_mig_root"/*/; do
+    _d="${_d%/}"
+    [ -d "$_d" ] || continue
+    [ "$(basename "$_d")" = "$_mig_cur" ] && continue
+    [ -d "$_d/.dsh" ] || continue
+    if [ -z "$_mig_prev" ] || [ "$_d/.dsh" -nt "$_mig_prev/.dsh" ]; then
+      _mig_prev="$_d"
+    fi
+  done
+  mkdir -p "$DSH_HOME_PARENT" 2>/dev/null || true
+  if [ -z "$_mig_prev" ]; then
+    : > "$_mig_marker" 2>/dev/null || true
+    return 0
+  fi
+  echo "  [升级迁移] 检测到上一版本数据: $_mig_prev"
+  for _rel in .dsh .config .local; do
+    [ -e "$_mig_prev/$_rel" ] || continue
+    [ -e "$DSH_HOME_PARENT/$_rel" ] && continue          # 已有则不覆盖（幂等）
+    if cp -a --reflink=auto "$_mig_prev/$_rel" "$DSH_HOME_PARENT/$_rel" 2>/dev/null \
+       || cp -a "$_mig_prev/$_rel" "$DSH_HOME_PARENT/$_rel" 2>/dev/null; then
+      echo "    ✓ 迁移 $_rel"
+    else
+      echo "    ! 迁移 $_rel 失败（继续启动，不影响本次运行）"
+    fi
+  done
+  # 清掉旧版本带过来的锁/PID，避免新实例启动被挡
+  rm -f "$DSH_HOME_PARENT"/.dsh/*.lock "$DSH_HOME_PARENT"/.dsh/*.pid 2>/dev/null || true
+  : > "$_mig_marker" 2>/dev/null || true
+}
+migrate_previous_version_data
+
 find_node() {
   # 1) 本实例自带 node（bin/node，与 start.sh 同目录 —— 相对路径，与包名无关，最稳）
   # 2) 系统标准路径（/usr/local/bin /usr/bin）
