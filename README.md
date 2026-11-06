@@ -33,10 +33,17 @@ DeepSeek Harness（dsh）的 NAS 适配包：群晖 DSM `.spk` / 飞牛 fnOS `.f
 
 权威值在 `build/build-config.yaml` 的 `defaults` / `spk` / `fpk` 三段；改端口只改这里。
 
+### 登录（OAuth）需要回环访问
+
+浏览器登录只接受回环来源（`127.0.0.1` / `localhost` / `[::1]`）。用 SSH 本地转发，端口由脚本从目标机读取；建好后在 `http://127.0.0.1:<端口>` 登录。不需要登录时用 API Key。
+
 ```bash
 http://<NAS-IP>:30800     # 群晖入口（<NAS-IP> 用 `hostname -I` 取主网卡局域网地址）
 http://<NAS-IP>:3080      # 飞牛入口；容器页：群晖 30802 / 飞牛 3082
 ./start.sh --proxy-port 31800 --dsh-port 31801 --container-port 31802 start   # 运行时改端口（写入 <数据目录>/ports，跨升级保留）
+
+scripts/connect-local.sh <NAS-IP>        # Linux / macOS；本机端口被占用时加 LOCAL_PORT=31800
+scripts/connect-local.bat                # Windows：双击后按提示输入 NAS 地址
 ```
 
 ## 安装与卸载
@@ -102,8 +109,8 @@ appcenter-cli start DeepSeekHarness-NAS         # 飞牛启停（stop/status/che
 Web UI 设置 → Models → 添加提供方；或直接改文件。
 
 ```
-/var/packages/deepseek-harness-nas/target/var/data/.dsh/settings.yaml           # 群晖 provider 配置
-/var/packages/deepseek-harness-nas/target/var/data/.dsh/.credentials.yaml       # 群晖 API Key
+/var/packages/deepseek-harness-nas/target/var/data/.dsh/settings.yaml      # provider 配置
+/var/packages/deepseek-harness-nas/target/var/data/.dsh/.credentials.yaml   # API Key
 ```
 
 ```yaml
@@ -139,8 +146,7 @@ https://ssp.dnof.net/
 ## 构建与发布
 
 ```bash
-./build/build-common.sh                  # 公共预编译 → target（全量约 15-20 分钟）
-./build/build-common.sh "" 1             # 复用已有 target，秒级
+./build/build-common.sh [" " 1]          # 全量约 15-20 分钟；传 "" 1 复用已有 target（秒级）
 ./build/SPK/pack-spk.sh                  # → build/staging/DeepSeekHarness-NAS_x86_64-<版本>.spk
 ./build/FPK/pack-fpk.sh                  # → build/staging/DeepSeekHarness-NAS_x86-<版本>.fpk
 ./scripts/promote-release.sh             # 验证通过的产物提升到 release/
