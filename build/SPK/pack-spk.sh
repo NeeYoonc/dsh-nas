@@ -194,7 +194,7 @@ mkdir -p "$ASSEMBLE"
 # 由 start.sh 自带 gen-portal 生成（端口/appname 同一份构建配置，无静态模板）
 "$TARGET/start.sh" gen-portal --type url --key-prefix "SYNO.SDS." --all-users false > "$TARGET/ui/config"
 
-# INFO（版本 = SPK 前三位；desc/displayname/maintainer 等一律来自 build-config.yaml，
+# INFO（版本 = SPK_VERSION（前三段 + rc 序号）；desc/displayname/maintainer 等一律来自 build-config.yaml，
 #   仅 DESC 在配置留空时回退 build-meta.env 的 README 摘要）
 cat > "$ASSEMBLE/INFO" <<EOF
 package="${APP_NAME}"
@@ -743,7 +743,7 @@ chmod 755 "$ASSEMBLE/scripts/"* 2>/dev/null || true
 chmod 755 "$ASSEMBLE/scripts/start-stop-status" "$ASSEMBLE/scripts/installer" 2>/dev/null || true
 
 # 文件名用【完整版本】FPK_VERSION，与 FPK 产物同格式（DeepSeekHarness-NAS_x86-<完整版本>.fpk）；
-# 而 INFO 里的内部 version（见上文 version= 那行）仍用 SPK_VERSION（前三段）——
+# 而 INFO 里的内部 version（见上文 version= 那行）仍用 SPK_VERSION（前三段 + rc 序号）——
 # 群晖套件版本号不接受 -alpha.1 这类后缀，但**文件名不受此限**，故两者刻意不同，勿统一。
 OUT_SPK="$D_STAGING/${APP_NAME}_${SPK_ARCH}-${FPK_VERSION}.spk"
 # ⚠ staging 是 gitignore 的产物目录，CI 全新 checkout 不存在 → tar 因写不进去失败
