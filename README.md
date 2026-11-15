@@ -149,6 +149,20 @@ sudo /var/packages/DeepSeekHarness-NAS/target/start.sh privilege revoke
 
 > **首次授权需要管理员执行一次**：DSM 7 强制第三方套件以套件用户运行安装脚本，套件**不能自我提权**。
 > 所以向导里的选择会被记录；若本机此前已授权过，升级时自动套用；否则按下面命令执行一次即可（之后升级都会自动保留/应用）。
+**不想用 SSH？用 DSM 任务计划手动跑一次**
+
+控制面板 → **任务计划** → 新增 → 计划的任务 → 用户定义的脚本：
+
+| 字段 | 值 |
+|---|---|
+| 用户账号 | `root` |
+| 任务设置 → 用户定义的脚本 | `/var/packages/DeepSeekHarness-NAS/target/start.sh privilege grant-full` |
+| 计划 → 运行频率 | **手动触发**（留成定期会每次重写同一份规则） |
+
+保存后选中任务 → **运行** → 「操作 → 查看结果」看到 `已应用：grant-full（文件 …）` 即成功。
+同样可以把 `privilege status`（查看）、`privilege revoke`（撤销）各做成一个手动任务，全程不用开 SSH。
+任务以 root 执行时**不需要写 `sudo`**；脚本幂等，重复运行只会重写同一份规则。
+
 
 
 ## 套件源（DSM 套件中心自动更新）
