@@ -34,9 +34,9 @@ set -uo pipefail
 
 # ── 常量（按部署方口径刻意写死在脚本里，不读环境变量/配置文件）──────────────
 readonly OFFICIAL_REPO_SLUG="deepseek-ai/deepseek-harness"   # 上游：官方 dsh
-readonly MIRROR_REPO_SLUG="EIGHTfs/DeepSeekHarness-NAS"      # 本仓：打包镜像
+readonly MIRROR_REPO_SLUG="NeeYoonc/dsh-nas"      # 本仓：打包镜像
 readonly POLL_INTERVAL_MINUTES=15                            # 探测周期；须与系统定时器一致
-readonly BUILD_COOLDOWN_SECONDS=$((6 * 3600))                # 成功后冷却：与 GitHub 版口径一致
+readonly BUILD_COOLDOWN_SECONDS=0                             # 成功后冷却：本仓口径为 0（不做冷却，上游一发版就构建）
 readonly LOG_MAX_LINES=500                                   # 日志保留行数上限
 readonly GITHUB_TOKEN=""                                     # 入库留空；本机部署时填入（勿提交）
 readonly API_BASE="https://api.github.com"
@@ -284,7 +284,7 @@ if [ "${RUNNING_COUNT:-0}" != "0" ]; then
   exit 0
 fi
 
-# ── ④ 成功后冷却：与 GitHub 版同为 6 小时 ────────────────────────────────
+# ── ④ 成功后冷却：本仓口径为 0（不做冷却；上游发布即同步构建）──────────────
 api_fetch "/repos/${MIRROR_REPO_SLUG}/actions/workflows/build.yml/runs?status=success&per_page=1" --with-token
 is_rate_limited && finish_rate_limited "查询上次成功构建"
 case "$API_HTTP_CODE" in
