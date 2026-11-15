@@ -19,11 +19,11 @@ on:
         required: false
         type: choice
         options: ['x86_64', 'arm64']
+        default: 'x86_64'
       spk_version:
         description: '可选：覆盖 SPK 版本号（群晖写法 x.y.z 或 x.y.z-build，如 0.2.2.3-1）。留空 = 按官方 tag 自动推导'
         required: false
         default: ''
-        default: 'x86_64'
   push:
     tags: ['v*']              # 打 v* tag 自动触发（并发布 Release）
 
