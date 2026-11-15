@@ -387,8 +387,18 @@ elif echo "$PKG_VER" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
 else
   SPK_VERSION="${MAIN_VER}"
 fi
+# 版本覆盖（可选）：SPK_VERSION_OVERRIDE
+#   场景：同一个官方 tag 重出包（比如修了启动脚本），但已装过同版本的机器需要收到「更新」提示。
+#   写法必须符合群晖规则（分隔符只允许 . - _，每段纯数字）：
+#     0.2.2.3-1   ← 官方 x.y.z-build 写法，比 0.2.2.3 大（推荐）
+if [ -n "${SPK_VERSION_OVERRIDE:-}" ]; then
+  case "$SPK_VERSION_OVERRIDE" in
+    *[!0-9._-]*) echo "[!] SPK_VERSION_OVERRIDE 含非法字符（只允许数字与 . - _）: $SPK_VERSION_OVERRIDE" >&2; exit 1 ;;
+  esac
+  SPK_VERSION="$SPK_VERSION_OVERRIDE"
+fi
 FPK_VERSION="${PKG_VER}"
-echo "官方版本 : $PKG_VER  |  SPK 版本: $SPK_VERSION（rc 序号进第 4 段）  |  FPK 版本: $FPK_VERSION（完整）"
+echo "官方版本 : $PKG_VER  |  SPK 版本: $SPK_VERSION（rc 序号进第 4 段；可覆盖）  |  FPK 版本: $FPK_VERSION（完整）"
 
 # commit hash（注入 DSH_CLIENT_COMMIT_HASH）
 COMMIT_HASH=""

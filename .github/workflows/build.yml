@@ -19,6 +19,10 @@ on:
         required: false
         type: choice
         options: ['x86_64', 'arm64']
+      spk_version:
+        description: '可选：覆盖 SPK 版本号（群晖写法 x.y.z 或 x.y.z-build，如 0.2.2.3-1）。留空 = 按官方 tag 自动推导'
+        required: false
+        default: ''
         default: 'x86_64'
   push:
     tags: ['v*']              # 打 v* tag 自动触发（并发布 Release）
@@ -59,6 +63,9 @@ jobs:
   # ── 群晖 SPK：源码链路（需完整 pnpm install + build + 裁剪）──
   build-target:
     runs-on: ${{ inputs.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
+    env:
+      # 可选版本覆盖（留空即不覆盖）：让「同官方 tag 的重出包」也能在套件中心提示更新
+      SPK_VERSION_OVERRIDE: ${{ inputs.spk_version }}
 
     steps:
       - uses: actions/checkout@v5
