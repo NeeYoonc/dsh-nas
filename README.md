@@ -128,6 +128,25 @@ API_KEYS:
 ```
 
 
+## 套件用户权限（可选，默认不放权）
+
+DSM 7 强制第三方套件以专用低权限用户运行（`run-as: package`），所以套件内的 AI 会话**默认没有 root**：读不了管理员目录里的文件，也不能安装/卸载套件。要不要放权、放到什么程度，由你决定：
+
+| 档位 | 效果 | 设置方式 |
+|---|---|---|
+| **不放权**（默认） | AI 会话只能读写套件自身数据 | 安装向导默认项 |
+| **标准** | 额外允许 `synopkg`（安装 / 卸载 / 启停套件） | 安装向导选「标准」，或 `sudo ./start.sh privilege grant` |
+| **完全 root** | AI 会话可执行任意管理员命令（**有安全风险**） | 安装向导选「完全 root」，或 `sudo ./start.sh privilege grant-full` |
+
+随时查看 / 修改 / 撤销：
+
+```bash
+sudo /var/packages/DeepSeekHarness-NAS/target/start.sh privilege status
+sudo /var/packages/DeepSeekHarness-NAS/target/start.sh privilege revoke
+```
+
+规则写在 `/etc/sudoers.d/DeepSeekHarness-NAS`（不在包目录 → 跨升级保留），**卸载套件时自动删除**；`start.sh check` 的第 ⑦ 项会显示当前档位。
+
 ## 套件源（DSM 套件中心自动更新）
 
 `sspks-cf` 的 Cloudflare Worker 每 5 分钟检查本仓最新 Release，自动把 `.spk` 同步到 R2。

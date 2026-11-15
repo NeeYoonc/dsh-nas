@@ -358,9 +358,60 @@ link_dsh_cmd() {
 
 preinst() { exit 0; }
 
+# ── 可选：给套件用户放权（安装向导显式选择；默认不放权）2026-11-13 ────────
+# 背景：DSM 7 强制第三方套件 run-as: package（不允许声明 root），所以套件内 AI 会话
+#   默认读不了管理员凭据、也跑不了 synopkg。这里把「要不要放权、放到什么程度」交给用户决定：
+#   安装向导三档：不放权（默认）/ 标准（只放行 synopkg）/ 完全 root（显式勾选）。
+# 规则文件在 /etc/sudoers.d/（不在包目录 → 跨升级保留）；卸载时删除（cleanup_uninstall）。
+# DSM 没有 visudo → 用 `sudo -l -U <用户>` 解析校验，失败立即回滚。
+SUDOERS_FILE="/etc/sudoers.d/${PACKAGE_NAME}"
+apply_privilege() {
+  local level="${1:-none}"
+  [ "$(id -u 2>/dev/null)" = "0" ] || { echo "[installer] 放权需要 root，跳过（$level）" >&2; return 1; }
+  case "$level" in
+    full)
+      cat > "$SUDOERS_FILE" <<EOF
+# ${PACKAGE_NAME} 安装向导生成：套件用户获得完全 root。
+# 撤销：删除本文件，或 sudo ${PACKAGE_BASE}/start.sh privilege revoke
+${PACKAGE_NAME} ALL=(ALL) NOPASSWD: ALL
+EOF
+      ;;
+    min)
+      cat > "$SUDOERS_FILE" <<EOF
+# ${PACKAGE_NAME} 安装向导生成：只放行套件管理命令（不给完全 root）。
+# 撤销：删除本文件，或 sudo ${PACKAGE_BASE}/start.sh privilege revoke
+${PACKAGE_NAME} ALL=(ALL) NOPASSWD: /usr/syno/bin/synopkg, /usr/syno/sbin/synopkg
+EOF
+      ;;
+    *)
+      rm -f "$SUDOERS_FILE" 2>/dev/null || true
+      echo "[installer] 套件用户权限：不放权（AI 会话只能用套件自身数据）" >&2
+      return 0
+      ;;
+  esac
+  chmod 440 "$SUDOERS_FILE" 2>/dev/null || true
+  chown root:root "$SUDOERS_FILE" 2>/dev/null || true
+  if ! sudo -l -U "${PACKAGE_NAME}" >/dev/null 2>&1; then
+    rm -f "$SUDOERS_FILE" 2>/dev/null || true
+    echo "[installer] sudoers 规则校验失败，已回滚（$level）" >&2
+    return 1
+  fi
+  echo "[installer] 套件用户权限档位：${level}" >&2
+}
+
 postinst() {
   setup_pkg_env
   apply_wizard_ports
+  # 权限档位只在安装向导传了变量时才动；升级未提供向导时保持现状（不动已有规则）
+  if [ -n "${wizard_priv_full:-}" ] || [ -n "${wizard_priv_min:-}" ] || [ -n "${wizard_priv_none:-}" ]; then
+    if [ "${wizard_priv_full:-}" = "true" ]; then
+      apply_privilege full
+    elif [ "${wizard_priv_min:-}" = "true" ]; then
+      apply_privilege min
+    else
+      apply_privilege none
+    fi
+  fi
   exit 0
 }
 
@@ -395,6 +446,8 @@ cleanup_uninstall() {
   else
     echo "[uninstall] 保留数据（wizard_delete_data=${wizard_delete_data:-false}）: ${PKG_VAR_DIR}" >&2
   fi
+  # 卸载即撤销放权：sudoers 规则随套件一起走（不留在系统里）
+  rm -f "/etc/sudoers.d/${PACKAGE_NAME}" 2>/dev/null || true
   # 注册软链（/usr/syno/etc/packages/<pkg> → /volumeX/@appconf/<pkg>）及其指向目录
   if [ -e "/usr/syno/etc/packages/${PACKAGE_NAME}" ]; then
     local CONF_TARGET
@@ -642,6 +695,27 @@ cat > "$ASSEMBLE/WIZARD_UIFILES/install_uifile" <<WIZARD_EOF
                         "key": "wizard_container_port",
                         "desc": "",
                         "validator": { "allowBlank": true, "regex": { "expr": "/^\\\\d+$/", "errorText": "请输入数字端口" } }
+                    }
+                ]
+            },
+            {
+                "type": "singleselect",
+                "desc": "套件用户权限（决定套件内 AI 会话能做什么；可随时用 start.sh privilege 修改）",
+                "subitems": [
+                    {
+                        "key": "wizard_priv_none",
+                        "desc": "不放权（默认）：AI 会话只能读写套件自身数据，读不了管理员文件、不能安装套件",
+                        "defaultValue": true
+                    },
+                    {
+                        "key": "wizard_priv_min",
+                        "desc": "标准：额外允许管理套件（synopkg 安装 / 卸载 / 启停）",
+                        "defaultValue": false
+                    },
+                    {
+                        "key": "wizard_priv_full",
+                        "desc": "<b style=\"color: red\">完全 root：AI 会话可执行任意管理员命令（有安全风险）</b>",
+                        "defaultValue": false
                     }
                 ]
             }

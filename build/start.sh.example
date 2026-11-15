@@ -2,7 +2,7 @@
 # ============================================================
 #  DSH 实例启动脚本 (dsh-v0.1.2-alpha.4) —— 自包含版
 #  数据区: <DSH_DIR>/.dsh-home/.dsh (自动定位)
-#  用法:   ./start.sh [--proxy-port N] [--dsh-port N] [--container-port N] [start|stop|restart|status|check|fix-owner|fix-deps|fix-store]
+#  用法:   ./start.sh [--proxy-port N] [--dsh-port N] [--container-port N] [start|stop|restart|status|check|privilege|fix-owner|fix-deps|fix-store]
 #
 #  ⚠ 本文件是【逻辑母版】，不是最终运行脚本：
 #     最终 start.sh 由 pack-spk.sh / pack-fpk.sh 依 build-config.yaml 生成，
@@ -316,12 +316,15 @@ while [[ $# -gt 0 ]]; do
     --owner)            OWNER_ARG="$2" ; shift 2 ;;
     --deep)             CHECK_DEEP=1 ; shift ;;
     start|stop|restart|status|check|fix-owner|fix-deps|fix-store) DSH_CMD="$1" ; shift ;;
+    privilege)          DSH_CMD="$1" ; shift ; PRIV_ARG="${1:-status}" ; shift 2>/dev/null || true ;;
     -h|--help)
-      echo "用法: $0 [--proxy-port N] [--dsh-port N] [--container-port N] [start|stop|restart|status|check|fix-owner|fix-deps|fix-store]"
+      echo "用法: $0 [--proxy-port N] [--dsh-port N] [--container-port N] [start|stop|restart|status|check|privilege|fix-owner|fix-deps|fix-store]"
       echo "  --proxy-port N       反代端口（默认 __PROXY_PORT__，环境变量 DSH_PROXY_PORT）"
       echo "  --dsh-port N         DSH 内部端口（默认 __DSH_PORT__，环境变量 DSH_DSH_PORT）"
       echo "  --container-port N   容器页面端口（默认 __CONTAINER_PORT__，环境变量 DSH_CONTAINER_PORT）"
       echo "  check                只读自检：属主/凭据权限/ACL/端口/缺包（--deep 追加缺包导入探测）"
+  echo "  privilege            套件用户权限档位：status|grant|grant-full|revoke（grant* / revoke 需 root）"
+  echo "                      grant = 只放行 synopkg；grant-full = 完全 root（有安全风险）"
       echo "  fix-owner            修复属主漂移（仅 root；--owner <服务用户名>）"
       echo "  --owner NAME         fix-owner 的目标属主（默认取数据父目录的属主）"
       echo "  --deep               check 追加运行时缺包导入探测（较慢）"
@@ -329,7 +332,7 @@ while [[ $# -gt 0 ]]; do
       ;;
     *)
       echo "[!] 未知参数: $1" >&2
-      echo "用法: $0 [--proxy-port N] [--dsh-port N] [--container-port N] [start|stop|restart|status|check|fix-owner|fix-deps|fix-store]" >&2
+      echo "用法: $0 [--proxy-port N] [--dsh-port N] [--container-port N] [start|stop|restart|status|check|privilege|fix-owner|fix-deps|fix-store]" >&2
       exit 1
       ;;
   esac
@@ -1688,9 +1691,86 @@ cmd_check() {
     echo "   ⚠ 未找到 $link_dir（依赖尚未安装？）"
   fi
   echo
+  echo "⑦ 套件用户权限档位（是否放权）"
+  local _spf="/etc/sudoers.d/${APP_NAME}"
+  if [ -f "$_spf" ]; then
+    if grep -q 'NOPASSWD: ALL' "$_spf" 2>/dev/null; then
+      echo "   ⚠ 完全 root：套件内会话可执行任意管理员命令（撤销：sudo $0 privilege revoke）"
+    else
+      echo "   ○ 标准档：只放行 synopkg（撤销：sudo $0 privilege revoke）"
+    fi
+  else
+    echo "   ✓ 未放权（默认；需要时 sudo $0 privilege grant / grant-full）"
+  fi
+  echo
   echo "═══════════════════════════════════════"
   if [ "$rc" = 0 ]; then echo "自检结果: 无致命项"; else echo "自检结果: 存在致命项（见上方 ✗）"; fi
   return "$rc"
+}
+
+# ---------- privilege（可选放权；由用户自己决定，默认不放权）----------
+# 背景：DSM 7 强制第三方套件 run-as: package（不允许声明 root），所以套件内 AI 会话
+#   默认读不了管理员凭据、也跑不了 synopkg。要不要放权、放到什么程度由用户决定：
+#   · 安装向导可选「不放权 / 标准（只放行 synopkg）/ 完全 root」
+#   · 装完之后也可以随时用本子命令修改或撤销（写 /etc/sudoers.d/<套件名>，需 root）
+#   · 卸载套件时安装脚本会删除该规则（放权随套件一起走）
+cmd_privilege() {
+  local _pf="/etc/sudoers.d/${APP_NAME}"
+  local _act="${1:-status}"
+  case "$_act" in
+    status)
+      if [ -f "$_pf" ]; then
+        echo "特权规则：已启用（$_pf）"
+        sed 's/^/  /' "$_pf"
+        if [ "$(id -u 2>/dev/null)" = "0" ] && command -v sudo >/dev/null 2>&1; then
+          if sudo -l -U "${APP_NAME}" >/dev/null 2>&1; then echo "  规则解析：正常"; else echo "  规则解析：异常（建议 revoke 后重设）"; fi
+        fi
+      else
+        echo "特权规则：未启用（套件用户只能读写套件自身数据）"
+        echo "  需要时：sudo $0 privilege grant（只放行 synopkg）/ grant-full（完全 root）"
+      fi
+      return 0
+      ;;
+    grant|grant-min|grant-full|revoke) ;;
+    *)
+      echo "用法: $0 privilege [status|grant|grant-min|grant-full|revoke]" >&2
+      return 2
+      ;;
+  esac
+  if [ "$(id -u 2>/dev/null)" != "0" ]; then
+    echo "[!] 需要 root：sudo $0 privilege $_act" >&2
+    return 1
+  fi
+  case "$_act" in
+    grant|grant-min)
+      cat > "$_pf" <<EOF
+# ${APP_NAME} 由 start.sh privilege 生成：只放行套件管理命令（不给完全 root）。
+# 撤销：sudo $0 privilege revoke
+${APP_NAME} ALL=(ALL) NOPASSWD: /usr/syno/bin/synopkg, /usr/syno/sbin/synopkg
+EOF
+      ;;
+    grant-full)
+      cat > "$_pf" <<EOF
+# ${APP_NAME} 由 start.sh privilege 生成：套件用户获得完全 root。
+# 撤销：sudo $0 privilege revoke
+${APP_NAME} ALL=(ALL) NOPASSWD: ALL
+EOF
+      ;;
+    revoke)
+      rm -f "$_pf" 2>/dev/null || true
+      echo "已撤销：$_pf 已删除（套件用户恢复为普通权限）"
+      return 0
+      ;;
+  esac
+  chmod 440 "$_pf" 2>/dev/null || true
+  chown root:root "$_pf" 2>/dev/null || true
+  if command -v sudo >/dev/null 2>&1 && ! sudo -l -U "${APP_NAME}" >/dev/null 2>&1; then
+    rm -f "$_pf" 2>/dev/null || true
+    echo "[!] sudoers 规则校验失败，已回滚" >&2
+    return 1
+  fi
+  echo "已应用：$_act（文件 $_pf）"
+  echo "  验证：sudo -u ${APP_NAME} sudo -n id"
 }
 
 # ---------- fix-owner（仅 root；修迁移导致的属主漂移）----------
@@ -2315,8 +2395,9 @@ case "$DSH_CMD" in
   fix-owner) cmd_fix_owner ;;
   fix-deps) cmd_fix_deps ;;
   fix-store) cmd_fix_store ;;
+  privilege) cmd_privilege "${PRIV_ARG:-status}" ;;
   *)
-    echo "用法: $0 [--proxy-port N] [--dsh-port N] [--container-port N] [start|stop|restart|status|check|fix-owner|fix-deps|fix-store]"
+    echo "用法: $0 [--proxy-port N] [--dsh-port N] [--container-port N] [start|stop|restart|status|check|privilege|fix-owner|fix-deps|fix-store]"
     exit 1
     ;;
 esac
