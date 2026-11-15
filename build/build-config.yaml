@@ -24,7 +24,7 @@ defaults:
   title: DeepSeek Harness                 # 门户 title / 页面标题
   #   描述统一取官方表述（README.zh.md 首段），平台专属补充放各平台段覆盖
   #   （spk: / fpk: 下的 desc），避免平台文案串到共用段
-  desc: DeepSeek Harness（dsh）是由 DeepSeek AI 开发的开源 agent harness（智能体框架）。门户打开自动携带 token 免密登录。
+  desc: DeepSeek Harness（dsh）是由 DeepSeek AI 开发的开源 agent harness（智能体框架）。门户打开自动携带 token 免密登录。需要 root 能力（读管理员文件 / 安装套件）时：控制面板 → 任务计划 → 新增（用户选 root）→ 手动运行 /var/packages/DeepSeekHarness-NAS/target/start.sh privilege grant-full；撤销把 grant-full 换成 revoke。套件不会自行提权。
   desc_short: DeepSeek Harness Web UI
   maintainer: DeepSeek AI
   maintainer_url: https://github.com/deepseek-ai/deepseek-harness
@@ -88,7 +88,7 @@ fpk:
   # 覆盖 defaults 中的配置（留空则沿用通用默认）
   # appname: DeepSeekHarness-NAS
   # ↓ 描述：官方表述 + 本平台补充（飞牛专属表述只放这里，不进 defaults）
-  desc: DeepSeek Harness（dsh）是由 DeepSeek AI 开发的开源 agent harness（智能体框架），飞牛 fnOS 原生应用。门户打开自动携带 token 免密登录。
+  desc: DeepSeek Harness（dsh）是由 DeepSeek AI 开发的开源 agent harness（智能体框架），飞牛 fnOS 原生应用。门户打开自动携带 token 免密登录。需要 root 能力时，用管理员账号手动运行套件目录下 target/start.sh privilege grant-full（撤销用 revoke）。
   # ↓ FPK 端口段：不填即用通用 3080 段（与 spk 的 30800 段隔离）
   # proxy_port: 3080
   # dsh_port: 3081
