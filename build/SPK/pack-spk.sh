@@ -399,10 +399,8 @@ EOF
   echo "[installer] 套件用户权限档位：${level}" >&2
 }
 
-postinst() {
-  setup_pkg_env
-  apply_wizard_ports
-  # 权限档位只在安装向导传了变量时才动；升级未提供向导时保持现状（不动已有规则）
+# 权限档位只在向导传了变量时才动；没传（例如旧版升级上来）就保持现状，不动已有规则
+apply_privilege_from_wizard() {
   if [ -n "${wizard_priv_full:-}" ] || [ -n "${wizard_priv_min:-}" ] || [ -n "${wizard_priv_none:-}" ]; then
     if [ "${wizard_priv_full:-}" = "true" ]; then
       apply_privilege full
@@ -411,7 +409,15 @@ postinst() {
     else
       apply_privilege none
     fi
+  else
+    echo "[installer] 权限向导未提供 → 保持现有权限档位不变" >&2
   fi
+}
+
+postinst() {
+  setup_pkg_env
+  apply_wizard_ports
+  apply_privilege_from_wizard
   exit 0
 }
 
@@ -481,6 +487,7 @@ preupgrade() {
 
 postupgrade() {
   setup_pkg_env
+  apply_privilege_from_wizard
   exit 0
 }
 
@@ -761,7 +768,27 @@ cat > "$ASSEMBLE/WIZARD_UIFILES/uninstall_uifile_chs" <<WIZARD_EOF
   }]
 }]
 WIZARD_EOF
-echo "  ✓ WIZARD_UIFILES 已生成（install/uninstall × 中英）"
+# 升级向导（Package Center 更新套件时弹出）：只放权限选择，不动端口（端口沿用历史值）
+cat > "$ASSEMBLE/WIZARD_UIFILES/upgrade_uifile" <<WIZARD_EOF
+[
+    {
+        "step_title": "DeepSeek Harness 升级：套件用户权限",
+        "items": [
+            {
+                "type": "singleselect",
+                "desc": "本次升级后套件用户的权限档位（默认保持「不放权」；装完也可用 start.sh privilege 修改）",
+                "subitems": [
+                    { "key": "wizard_priv_none", "desc": "不放权（默认）：AI 会话只能读写套件自身数据", "defaultValue": true },
+                    { "key": "wizard_priv_min",  "desc": "标准：额外允许管理套件（synopkg）", "defaultValue": false },
+                    { "key": "wizard_priv_full", "desc": "<b style=\"color: red\">完全 root：AI 会话可执行任意管理员命令（有安全风险）</b>", "defaultValue": false }
+                ]
+            }
+        ]
+    }
+]
+WIZARD_EOF
+cp "$ASSEMBLE/WIZARD_UIFILES/upgrade_uifile" "$ASSEMBLE/WIZARD_UIFILES/upgrade_uifile_chs"
+echo "  ✓ WIZARD_UIFILES 已生成（install/upgrade/uninstall × 中英）"
 
 # var/ports 落盘（start-stop-status 读取；端口全部 build-config.yaml 驱动）
 echo "▶ SPK 端口: $SPK_PROXY_PORT/$SPK_DSH_PORT/$SPK_CONTAINER_PORT"
