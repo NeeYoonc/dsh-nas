@@ -198,6 +198,10 @@ else
   # is_running 各读各的 PID 文件互不感知，AI/手动 restart 会操作错误实例（2026-09-22 实测分叉）。
   # 探测不到（非群晖部署：fnOS 走 TRIM_PKGVAR 分支不受影响；纯目录部署）则回退 .dsh-home 保持原行为。
   _APP_NAME="${APP_NAME:-$(basename "$DSH_DIR")}"
+  # 手动运行（sudo ./start.sh）时 DSH_DIR 是 /var/packages/<app>/target → 取上一级才是套件名
+  case "$DSH_DIR" in
+    /var/packages/*/*) _APP_NAME="$(basename "$(dirname "$DSH_DIR")")" ;;
+  esac
   SYNODATA=""
   for _d in "/var/packages/${_APP_NAME}/var" /volume*/@appdata/${_APP_NAME}; do
     [ -d "$_d" ] && { SYNODATA="$_d"; break; }
