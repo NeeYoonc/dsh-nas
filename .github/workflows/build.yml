@@ -85,6 +85,8 @@ jobs:
           # Release 资产清理回归（架构维度，见 test/prune-release-assets.test.sh）
           bash test/prune-release-assets.test.sh
           bash test/safe-rm-rf.test.sh
+          # 向导端口逻辑回归（固定数据根的 ports 路径，2026-11-15 补进 CI）
+          bash test/apply-wizard-ports.test.sh
 
       # 唯一构建：install + build + 裁剪一次做完，target 作为 artifact 传给各打包 job
       - uses: ./.github/actions/build-target

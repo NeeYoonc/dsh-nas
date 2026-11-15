@@ -68,9 +68,11 @@ run_scenario() {
     echo "  ✗ $name: ui/config port = ${got_ui:-无}（期望 $expect_ui）" >&2
     return 1
   fi
-  # ports 文件也应写入最终值
+  # ports 文件也应写入最终值（2026-11-06 方案 C：固定写数据根 <var>/ports，
+  #   历史值仍从旧布局 <var>/<版本>/ports 兼容读取 —— 上面 $spkvar/0.2.0-rc.2/ports
+  #   是刻意造的「旧版本遗留」，不能改；断言必须指向新的固定路径）
   local got_pp
-  got_pp="$(awk -F= '/^PROXY_PORT=/{print $2}' "$spkvar/0.2.0-rc.2/ports" 2>/dev/null)"
+  got_pp="$(awk -F= '/^PROXY_PORT=/{print $2}' "$spkvar/ports" 2>/dev/null)"
   [ "$got_pp" = "$expect_ui" ] || { echo "  ✗ $name: ports PROXY_PORT=$got_pp（期望 $expect_ui）" >&2; return 1; }
   return 0
 }
