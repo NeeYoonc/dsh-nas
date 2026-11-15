@@ -366,8 +366,33 @@ preinst() { exit 0; }
 # DSM 没有 visudo → 用 `sudo -l -U <用户>` 解析校验，失败立即回滚。
 SUDOERS_FILE="/etc/sudoers.d/${PACKAGE_NAME}"
 apply_privilege() {
-  local level="${1:-none}"
-  [ "$(id -u 2>/dev/null)" = "0" ] || { echo "[installer] 放权需要 root，跳过（$level）" >&2; return 1; }
+  local level="${1:-none}" _cmd="grant"
+  [ "$level" = "full" ] && _cmd="grant-full"
+  # DSM 7 以【套件用户】执行安装/升级脚本（conf/privilege: run-as=package），
+  # 所以这里通常不是 root；写 /etc/sudoers.d 需要提权。三条路：
+  #   ① 本来就是 root（手动执行 installer）→ 直接写
+  #   ② 之前已授权过（sudo -n 可用）→ 借现有权限调用 start.sh privilege 应用
+  #   ③ 首次授权 → 记下请求并打印一条管理员命令（DSM 不允许第三方套件自我提权）
+  if [ "$(id -u 2>/dev/null)" != "0" ]; then
+    if command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
+      echo "[installer] 以套件用户运行，改用已授予的 sudo 权限应用档位：$level" >&2
+      if [ "$level" = "none" ]; then
+        sudo -n "${PACKAGE_BASE}/start.sh" privilege revoke; return $?
+      fi
+      sudo -n "${PACKAGE_BASE}/start.sh" privilege "$_cmd"; return $?
+    fi
+    if [ "$level" = "none" ]; then
+      echo "[installer] 不放权：未检测到既有授权，无需改动" >&2
+      rm -f "${PKG_VAR_DIR}/.privilege-request" 2>/dev/null || true
+      return 0
+    fi
+    printf '%s
+' "$level" > "${PKG_VAR_DIR}/.privilege-request" 2>/dev/null || true
+    chown "${PACKAGE_NAME}:system" "${PKG_VAR_DIR}/.privilege-request" 2>/dev/null || true
+    echo "[installer] DSM 7 不允许第三方套件自我提权：已记录请求（$level）" >&2
+    echo "[installer] 请管理员执行一次：sudo ${PACKAGE_BASE}/start.sh privilege $_cmd" >&2
+    return 0
+  fi
   case "$level" in
     full)
       cat > "$SUDOERS_FILE" <<EOF
@@ -396,6 +421,7 @@ EOF
     echo "[installer] sudoers 规则校验失败，已回滚（$level）" >&2
     return 1
   fi
+  rm -f "${PKG_VAR_DIR}/.privilege-request" 2>/dev/null || true
   echo "[installer] 套件用户权限档位：${level}" >&2
 }
 

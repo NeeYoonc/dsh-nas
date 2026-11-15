@@ -147,6 +147,10 @@ sudo /var/packages/DeepSeekHarness-NAS/target/start.sh privilege revoke
 
 规则写在 `/etc/sudoers.d/DeepSeekHarness-NAS`（不在包目录 → 跨升级保留），**卸载套件时自动删除**；`start.sh check` 的第 ⑦ 项会显示当前档位。
 
+> **首次授权需要管理员执行一次**：DSM 7 强制第三方套件以套件用户运行安装脚本，套件**不能自我提权**。
+> 所以向导里的选择会被记录；若本机此前已授权过，升级时自动套用；否则按下面命令执行一次即可（之后升级都会自动保留/应用）。
+
+
 ## 套件源（DSM 套件中心自动更新）
 
 `sspks-cf` 的 Cloudflare Worker 每 5 分钟检查本仓最新 Release，自动把 `.spk` 同步到 R2。
