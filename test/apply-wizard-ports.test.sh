@@ -51,7 +51,15 @@ run_scenario() {
   [ -n "$hist" ] && printf '%s\n' "$hist" > "$spkvar/0.2.0-rc.2/ports"
 
   (
+    # 环境隔离（2026-11-20）：installer 母版第 2 行是 PACKAGE_NAME="$SYNOPKG_PKGNAME"，
+    #   本测试顶部开了 set -u，若调用方环境没有 SYNOPKG_PKGNAME（CI / 干净 shell），
+    #   这一行会以 unbound variable 中断 source → apply_wizard_ports 未定义 →
+    #   三个场景全部退化成打包默认值（曾在 CI 里连续把构建打红）。这里显式喂默认值，
+    #   并临时关掉 -u，确保测试不依赖调用方是否运行在套件环境里。
+    set +u
+    export SYNOPKG_PKGNAME=DeepSeekHarness-NAS
     . "$INST"
+    set -u
     export PACKAGE_NAME=DeepSeekHarness-NAS PACKAGE_BASE="$pkgbase" PKG_VAR_DIR="$spkvar"
     pkg_version_resolved() { echo 0.2.0-rc.2; }
     [ -n "$wz_proxy" ] && export wizard_proxy_port="$wz_proxy"
