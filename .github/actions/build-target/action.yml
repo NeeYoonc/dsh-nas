@@ -52,6 +52,11 @@ runs:
         else
           echo "tag=$(bash ./scripts/fetch-dsh-latest.sh --print-tag)" >> "$GITHUB_OUTPUT"
         fi
+      env:
+        # 2026-11-20：带上 token 走认证配额（5000/h）。匿名 60/h 在 GitHub 托管机的
+        #   共享出口 IP 上很容易被打满，实测 rc.5 构建因此随机报
+        #   「✗ 无法从 api.github.com 读取 .../package.json（网络/限流/tag 不存在）」。
+        DS_FETCH_TOKEN: ${{ inputs.token || github.token }}
 
     - name: 随包 node / pnpm 环境（Node 大版本自动跟随官方 engines.node）
       uses: ./.github/actions/setup-node-env

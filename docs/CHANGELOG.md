@@ -3,6 +3,12 @@
 > 本文件承载**历史更新**。README 只保留"现在是什么样、怎么用"，不再逐条记录演变过程。
 > 每条一行；同一日期内按"改动面"归类。**解释性内容见 `使用指南.md` / `构建与发布指南.md` / `打包规范.md` / `故障排查指南.md`。**
 
+## 2026-11-20
+- **rc.4 / rc.5 为何没出包（两条独立故障，均已修）**：
+  1. `test/apply-wizard-ports.test.sh` 依赖调用方环境：installer 母版第 2 行 `PACKAGE_NAME="$SYNOPKG_PKGNAME"` 在开了 `set -u` 的测试里，遇到 CI / 干净 shell 没有该变量就以 unbound variable 中断 `source` → `apply_wizard_ports` 从未定义 → 三个场景全退化成打包默认值。该测试 11-15 才接进 CI，之后每个构建都红在「守卫套件」，看门狗「同版本连续失败 ≥3 次」刹车随即生效，Release 停更在 rc.3。修法：场景子 shell 里显式 `export SYNOPKG_PKGNAME` 并临时 `set +u` 包住 `source`。
+  2. 构建期 `api.github.com` 走**匿名**配额（60 次/小时）；GitHub 托管机出口 IP 共享，容易被别的任务打满 → 随机报「✗ 无法从 api.github.com 读取 …/package.json」。修法：`fetch-dsh-latest.sh` 的所有调用点统一传 `DS_FETCH_TOKEN`（`build-target` 的 tag 解析、`setup-node-env` 的 engines 推导、`watch-official` 的 tag 判定），走认证配额 5000 次/小时。
+- **看门狗刹车改为「按当前 main 提交计数」**：原来只数「该版本发布以来的失败次数」，于是失败全发生在旧提交上也照样永久刹住 —— 本地修好、推送后仍拒绝重试，只能手动 dispatch。现在只统计 `head_sha == main HEAD` 的失败：main 一前进（提交修复）计数归零自动再试，同一提交上失败 3 次才刹车；取不到 HEAD 时退回旧口径。
+
 ## 2026-11-15
 - **向导端口回归测试修复并纳入 CI**：固定数据根（方案 C）后 `test/apply-wizard-ports.test.sh` 的断言仍指向旧路径 `<数据目录>/<版本>/ports`，导致 S2/S3 恒失败（S1 反而因历史夹具恰好躺在旧路径上「假通过」）；该测试此前未被 CI 引用，所以一直没人发现。断言改读 `<数据目录>/ports`，并在 `build.yml` 守卫套件中补跑它。
 - 上游同步（只取与本仓设计不冲突的部分）：看门狗「实际触发频率受 GitHub `schedule` 降频影响」的实测说明（约 8 小时，官方发版到本仓出包可能延迟数小时）、`docs/可行性-OpenWrt与iStoreOS.md` 及其 Docker 路线结论。跳过上游「端口文件按版本取 / README 版本隔离」两个提交 —— 与本仓固定数据根设计冲突。
