@@ -246,24 +246,20 @@ if [ -z "$OFFICIAL_TAG" ]; then
   exit 0
 fi
 
-# ── ② 本仓最新 Release tag（已发布 = 已对齐的那个版本） ────────────────────
+# ── ② 本仓是否已有该官方 tag 的 Release（2026-11-20 改为按 tag 精确查）──────
+#   原先用 /releases/latest 代表"本仓已发布到哪版"，但补构建历史版本会打乱它：
+#   事后补出来的旧版本（created_at 更新）会被 GitHub 当成 latest，于是看起来"还没对齐"
+#   → 反复重建已经发布的那个新版本。按 tag 查才是判定真正需要的语义。
 MIRROR_TAG=""
-api_fetch "/repos/${MIRROR_REPO_SLUG}/releases/latest" --with-token
-is_rate_limited && finish_rate_limited "读取本仓最新 Release"
+api_fetch "/repos/${MIRROR_REPO_SLUG}/releases/tags/${OFFICIAL_TAG}" --with-token
+is_rate_limited && finish_rate_limited "读取本仓该 tag 的 Release"
 case "$API_HTTP_CODE" in
   2??) MIRROR_TAG="$(body_field tag_name)" ;;
-  404)
-    # 本仓把最新 Release 标成 prerelease 时 /releases/latest 会 404 → 退到列表首条
-    api_fetch "/repos/${MIRROR_REPO_SLUG}/releases?per_page=1" --with-token
-    is_rate_limited && finish_rate_limited "读取本仓 release 列表"
-    case "$API_HTTP_CODE" in
-      2??) MIRROR_TAG="$(body_first_release_tag)" ;;
-      *) finish_failure "读取本仓 release 列表" ;;
-    esac ;;
-  *) finish_failure "读取本仓最新 Release" ;;
+  404) MIRROR_TAG="" ;;
+  *) finish_failure "读取本仓该 tag 的 Release" ;;
 esac
 
-log_line "官方=${OFFICIAL_TAG} 本仓=${MIRROR_TAG:-（无 Release）}"
+log_line "官方=${OFFICIAL_TAG} 本仓该 tag=${MIRROR_TAG:-（无 Release）}"
 
 if [ "$OFFICIAL_TAG" = "$MIRROR_TAG" ]; then
   log_line "结论：已对齐，无需动作"

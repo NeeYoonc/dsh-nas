@@ -7,6 +7,7 @@
 - **rc.4 / rc.5 为何没出包（两条独立故障，均已修）**：
   1. `test/apply-wizard-ports.test.sh` 依赖调用方环境：installer 母版第 2 行 `PACKAGE_NAME="$SYNOPKG_PKGNAME"` 在开了 `set -u` 的测试里，遇到 CI / 干净 shell 没有该变量就以 unbound variable 中断 `source` → `apply_wizard_ports` 从未定义 → 三个场景全退化成打包默认值。该测试 11-15 才接进 CI，之后每个构建都红在「守卫套件」，看门狗「同版本连续失败 ≥3 次」刹车随即生效，Release 停更在 rc.3。修法：场景子 shell 里显式 `export SYNOPKG_PKGNAME` 并临时 `set +u` 包住 `source`。
   2. 构建期 `api.github.com` 走**匿名**配额（60 次/小时）；GitHub 托管机出口 IP 共享，容易被别的任务打满 → 随机报「✗ 无法从 api.github.com 读取 …/package.json」。修法：`fetch-dsh-latest.sh` 的所有调用点统一传 `DS_FETCH_TOKEN`（`build-target` 的 tag 解析、`setup-node-env` 的 engines 推导、`watch-official` 的 tag 判定），走认证配额 5000 次/小时。
+- **看门狗「是否已对齐」改为按 tag 精确查**：原来用 `releases/latest` 代表「本仓已发布到哪版」，但补构建历史版本会打乱它 —— 事后补出来的 rc.4（`created_at` 比 rc.5 更晚）会被 GitHub 当成 latest，于是看门狗以为 rc.5 还没发过，每 30 分钟重建一次 rc.5。改为直接查 `releases/tags/<官方 tag>` 是否存在；`scripts/watch-official-local.sh` 的本机探活同步改口径。
 - **看门狗刹车改为「按当前 main 提交计数」**：原来只数「该版本发布以来的失败次数」，于是失败全发生在旧提交上也照样永久刹住 —— 本地修好、推送后仍拒绝重试，只能手动 dispatch。现在只统计 `head_sha == main HEAD` 的失败：main 一前进（提交修复）计数归零自动再试，同一提交上失败 3 次才刹车；取不到 HEAD 时退回旧口径。
 
 ## 2026-11-15

@@ -4,7 +4,7 @@ name: Watch official DSH releases
 # 为什么用轮询：官方不会给我们发 webhook，轮询是唯一可行的自动对齐手段；代价极小 ——
 #   每 30 分钟一次 api.github.com 调用（实测 1~4 秒），且只在"确实需要构建"时才触发。
 # 判定是无状态的（不依赖任何额外存储），三个条件全部满足才触发：
-#   ① 官方最新 tag ≠ 本仓最新 Release tag（还没对齐）
+#   ① 本仓还没有该官方 tag 的 Release（还没对齐；按 tag 精确查，不受补构建影响）
 #   ② 当前没有构建在跑（build.yml 是 cancel-in-progress: true，插队会把它取消掉）
 #   ③ 同一版本在**当前 main 提交**上连续失败 < 3 次（成功不节流：上游一发新版立刻追；
 #      只对卡住的版本刹车，否则没有冷却时一个编不过的版本会被每 30 分钟重派一次，
@@ -50,12 +50,18 @@ jobs:
             exit 0
           fi
 
-          # ② 本仓最新 Release tag = 上一次已构建并发布的版本
-          MINE="$(curl -sS --max-time 20 "${AUTH[@]}" "$API/releases/latest" \
-                  | python3 -c 'import sys,json;print(json.load(sys.stdin).get("tag_name",""))' 2>/dev/null || true)"
-          echo "本仓已发布 tag: ${MINE:-（无 Release）}"
+          # ② 本仓是否已有**这个官方 tag** 的 Release（2026-11-20 改为按 tag 精确查）
+          #   原来取 releases/latest 代表"本仓已发布到哪版"，但补构建历史版本会打乱它：
+          #   事后补出来的 rc.4（created_at 比 rc.5 更晚）会被 GitHub 当成 latest，
+          #   于是看门狗以为 rc.5 还没发过 → 每 30 分钟重建一次 rc.5，白烧额度。
+          #   现在直接问「$OFFICIAL 这个 tag 在本仓有 Release 吗」，语义才是判定需要的。
+          MINE="$(curl -sS --max-time 20 "${AUTH[@]}" "$API/releases/tags/$OFFICIAL" \
+                  | python3 -c 'import sys,json
+d=json.load(sys.stdin) or {}
+print(d.get("tag_name","") if not d.get("message") else "")' 2>/dev/null || true)"
+          echo "本仓该 tag 的 Release: ${MINE:-（没有）}"
           if [ "$OFFICIAL" = "$MINE" ]; then
-            echo "… 已与官方对齐（tag 相同）→ 无需构建"
+            echo "… 已与官方对齐（$OFFICIAL 已发布）→ 无需构建"
             exit 0
           fi
 
