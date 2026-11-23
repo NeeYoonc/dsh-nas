@@ -165,7 +165,7 @@ Worker 直接解析 SPK 内的 `INFO` 与图标、并从 R2 ETag 取 md5，**本
 https://ssp.dnof.net/
 ```
 
-- 只跟随「最新正式 Release」：alpha/beta 预发布不会进入套件源
+- 只跟随「最新正式 Release」（GitHub 的 `releases/latest`）：alpha/beta 发布时标了 prerelease，不会被 Worker 同步进套件源
 - 索引/安装包都由 Cloudflare 与 R2 提供，DSM 不直连 GitHub（国内网络更稳）
 - 同步记录：`/health` 的 `last_sync`；手动触发 `/sync`（需 `x-sync-token`）
 - 同步代码在 `sspks-cf/src/sync.js`；无 bundle 时的解析器为 `sspks-cf/src/autoindex.js`
@@ -183,9 +183,10 @@ https://ssp.dnof.net/
 
 **通道口径（本仓自定）**：
 
-- **只发正式版** —— 拉源码时自动跳过上游 `alpha` / `beta` tag（`DSH_ALLOW_PRERELEASE=1` 可临时放开），正式版 = `rc` 及以上（上游无 stable tag，`rc` 即最成熟通道）。
+- **全通道自动追**（2026-11-23 起）—— 上游 `alpha` / `beta` / `rc` / 正式版**一律自动对齐**，不等正式版（官方 alpha 通常领先 rc 数天，等正式版等于放弃提前验证）。开发版 Release 标 `prerelease`，不占 GitHub `Latest`；套件源只读 `releases/latest`，所以正式版用户的分发结果不变。要退回「只追正式版」设 `DSH_FORMAL_ONLY=1`。
+- **版本号区分通道** —— 套件 `INFO` 版本必须是数字段（DSM 不接受 `-alpha.1`），映射规则：`x.y.z-rc.N → x.y.z.N`、`x.y.z-alpha.N → x.y.z-1NN`、`x.y.z-beta.N → x.y.z-2NN`、无后缀 → `x.y.z.99`；通道时序仍是 alpha < beta < rc。
 - **架构成对** —— 正式版按 `x86_64` 与 `arm64` 各派发一次，同一 Release 下产出 **4 个产物**：`*_x86_64-<ver>.spk`、`*_x86-<ver>.fpk`、`*_armv8-<ver>.spk`、`*_arm-<ver>.fpk`。
-- **跟随上游** —— 看门狗每 30 分钟比对上游最新正式 tag 与本仓最新 Release tag；「不相等 + 无构建在跑」即自动派发双架构重建（**成功不节流**，上游一发新版就追，无冷却）；仅当同一版本连续失败 ≥ 3 次时暂停，等上游下一版或人工修复。
+- **跟随上游** —— 看门狗每 30 分钟比对上游最新 tag（含 alpha/beta）与本仓对应 tag 的 Release；「不相等 + 无构建在跑」即自动派发双架构重建（**成功不节流**，上游一发新版就追，无冷却）；仅当同一版本连续失败 ≥ 3 次时暂停，等上游下一版或人工修复。
 
 
 ## 脚本与环境变量索引
@@ -272,7 +273,7 @@ https://ssp.dnof.net/
 | `DSH_CLIENT_VERSION` / `DSH_CLIENT_COMMIT_HASH` / `DSH_CLIENT_TITLE` | 打包注入 | 名牌小字版本与标题 |
 | `DSH_SLIM_SKIP_NATIVE` / `DSH_REPAIR_DRY_RUN` | `0` / `0` | 跳过 native 构建（留档脚本用）/ 守护只打印将停的 PID 不真停 |
 | `DS_FETCH_TOKEN` / `DS_FETCH_GIT_URL` / `DSH_GIT_MIRROR_PREFIX` | 空 / 官方仓库 / 空（关） | 拉源码 token（等价 `--token`）/ git 远端覆盖 / GitHub 镜像前缀（如 `https://gh-proxy.com/`） |
-| `DSH_ALLOW_PRERELEASE` | 空（关） | `1` = 拉源码时把 alpha/beta 开发版 tag 也纳入候选；默认只认**正式版**（rc 及以上，排除 alpha/beta） |
+| `DSH_FORMAL_ONLY` | 空（关） | `1` = 拉源码时只认**正式版**（rc 及以上，排除 alpha/beta）；默认**全通道都追**（alpha/beta 也会自动构建，产物标 prerelease） |
 | `NPM_REGISTRY_CANDIDATES` | 内置清单 | npm 源并发探测候选数组 |
 | `ARCH` / `BUILD_ARCH` | `x86_64` | 目标架构覆盖（`x86_64` / `arm64`） |
 | `APP_NAME` `D_SRC` `D_BUILD` `D_STAGING` `D_REL` `D_SCRIPTS` `D_ASSETS` | 读 config | 名称与工作区目录临时覆盖 |

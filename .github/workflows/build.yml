@@ -277,8 +277,9 @@ jobs:
           name: ${{ steps.note-main.outputs.TITLE }}
           body_path: /tmp/release-body-main.md
           files: dist-main/*
-          # 通道语义（2026-11-05 自建仓定）：alpha/beta = 开发版 → 标 prerelease，
-          # 不占用「Latest」；rc 及以上 = 正式版 → 正式 Release。
+          # 通道语义：alpha/beta = 开发版 → 标 prerelease，不占用「Latest」；
+          # rc 及以上 = 正式版 → 正式 Release。上游各通道都由看门狗自动追（2026-11-23 起），
+          # 「开发版也自动构建」与「不污染 Latest」靠这一行 prerelease 标记并存。
           # 用已解析的 tag（steps.reltag.outputs.TAG）判断，故手动 dsh_tag 与自动判定都适用。
           prerelease: ${{ contains(steps.reltag.outputs.TAG, '-alpha') || contains(steps.reltag.outputs.TAG, '-beta') }}
           fail_on_unmatched_files: false
