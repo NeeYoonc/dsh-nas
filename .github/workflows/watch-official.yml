@@ -55,10 +55,11 @@ jobs:
           #   事后补出来的 rc.4（created_at 比 rc.5 更晚）会被 GitHub 当成 latest，
           #   于是看门狗以为 rc.5 还没发过 → 每 30 分钟重建一次 rc.5，白烧额度。
           #   现在直接问「$OFFICIAL 这个 tag 在本仓有 Release 吗」，语义才是判定需要的。
+          #   ★ 内嵌 python 必须写成【单行】：块标量里出现 0 缩进的行会提前结束块标量，
+          #     GitHub 直接判 workflow 无效（0 个 job、日志 404），且不报是哪个文件坏
+          #     —— 2026-11-20 就这么把看门狗整瘫了 3 天（见 CHANGELOG）。
           MINE="$(curl -sS --max-time 20 "${AUTH[@]}" "$API/releases/tags/$OFFICIAL" \
-                  | python3 -c 'import sys,json
-d=json.load(sys.stdin) or {}
-print(d.get("tag_name","") if not d.get("message") else "")' 2>/dev/null || true)"
+                  | python3 -c 'import sys,json;d=json.load(sys.stdin) or {};print(d.get("tag_name","") if not d.get("message") else "")' 2>/dev/null || true)"
           echo "本仓该 tag 的 Release: ${MINE:-（没有）}"
           if [ "$OFFICIAL" = "$MINE" ]; then
             echo "… 已与官方对齐（$OFFICIAL 已发布）→ 无需构建"
@@ -93,14 +94,10 @@ print(d.get("tag_name","") if not d.get("message") else "")' 2>/dev/null || true
           if [ -n "${PUB:-}" ]; then
             HEAD_SHA="$(git rev-parse HEAD 2>/dev/null || echo '')"
             echo "当前 main 提交: ${HEAD_SHA:0:7}${HEAD_SHA:+（失败次数按该提交统计）}"
+            # ★ 同样是单行 python：块标量里任何 0 缩进行都会提前结束块标量
             FAILS="$(curl -sS --max-time 25 "${AUTH[@]}" \
                       "$API/actions/workflows/build.yml/runs?per_page=100" \
-                    | python3 -c 'import sys,json
-d=json.load(sys.stdin) or {}
-rs=[r for r in (d.get("workflow_runs") or [])
-    if (r.get("created_at") or "")>=sys.argv[1] and r.get("conclusion")=="failure"
-    and (not sys.argv[2] or (r.get("head_sha") or "")==sys.argv[2])]
-print(len(rs))' "$PUB" "${HEAD_SHA:-}" 2>/dev/null || echo 0)"
+                    | python3 -c 'import sys,json;d=json.load(sys.stdin) or {};rs=[r for r in (d.get("workflow_runs") or []) if (r.get("created_at") or "")>=sys.argv[1] and r.get("conclusion")=="failure" and (not sys.argv[2] or (r.get("head_sha") or "")==sys.argv[2])];print(len(rs))' "$PUB" "${HEAD_SHA:-}" 2>/dev/null || echo 0)"
             echo "该版本发布以来、当前 main 上的失败次数: ${FAILS:-0}（阈值 3）"
             if [ "${FAILS:-0}" -ge 3 ]; then
               echo "… 同一版本在当前 main 上已连续失败 ≥3 次 → 停止自动对齐，避免每 30 分钟重复构建烧额度"

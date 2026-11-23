@@ -3,6 +3,10 @@
 > 本文件承载**历史更新**。README 只保留"现在是什么样、怎么用"，不再逐条记录演变过程。
 > 每条一行；同一日期内按"改动面"归类。**解释性内容见 `使用指南.md` / `构建与发布指南.md` / `打包规范.md` / `故障排查指南.md`。**
 
+## 2026-11-23
+- **看门狗静默停摆 3 天（根因：workflow YAML 块标量被 0 缩进的行截断）**：`195a6d7`（刹车按 main 提交计数）与 `bd6b88e`（对齐判定按 tag 精确查）两次改动里，内嵌的多行 python 有两行写成了 0 缩进。`run: |` 是块标量，遇到 0 缩进的行就**提前结束**，后面的行变成顶层散落文本 → GitHub 判定整个 `watch-official.yml` 无效。症状极具迷惑性：Actions 里生成的是 **0 个 job 的失败运行**（`#56`–`#58`），日志接口返回 404，工作流名字显示成文件路径，`schedule` 从此**不报错、不告警地再也不触发** → 上游 11-22 连发 `0.2.3-alpha.1`/`alpha.2`，本仓一直停在 `rc.5`。修法：两处 python 改成单行；`scripts/check-workflow-yaml.py` 的扫描范围从「只有 build.yml」扩到**全部 workflow**，并新增块标量提前结束检查（块标量后出现更浅缩进且不像 YAML 结构的行即报错）。
+- **alpha/beta 版本号规则修正**：原来 `x.y.z-alpha.N` / `x.y.z-beta.N` 一律退化成三段 `x.y.z`，导致同一主版本的 `alpha.1` 与 `alpha.2` 得到**完全相同**的套件版本号（套件中心不提示更新、两个包无法区分）。改为把通道与序号编进 build 段：`alpha.N → x.y.z-1NN`、`beta.N → x.y.z-2NN`（序号补两位）。feature 段仍小于同主版本的 rc（`0.2.3-102 < 0.2.3.1`），通道时序保持 alpha < beta < rc。
+
 ## 2026-11-20
 - **rc.4 / rc.5 为何没出包（两条独立故障，均已修）**：
   1. `test/apply-wizard-ports.test.sh` 依赖调用方环境：installer 母版第 2 行 `PACKAGE_NAME="$SYNOPKG_PKGNAME"` 在开了 `set -u` 的测试里，遇到 CI / 干净 shell 没有该变量就以 unbound variable 中断 `source` → `apply_wizard_ports` 从未定义 → 三个场景全退化成打包默认值。该测试 11-15 才接进 CI，之后每个构建都红在「守卫套件」，看门狗「同版本连续失败 ≥3 次」刹车随即生效，Release 停更在 rc.3。修法：场景子 shell 里显式 `export SYNOPKG_PKGNAME` 并临时 `set +u` 包住 `source`。

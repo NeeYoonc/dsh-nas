@@ -28,7 +28,12 @@ import re
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-TARGETS = [".github/workflows/build.yml"] + [
+WF_DIR = os.path.join(ROOT, ".github", "workflows")
+TARGETS = [
+    os.path.join(".github", "workflows", f)
+    for f in sorted(os.listdir(WF_DIR))
+    if f.endswith((".yml", ".yaml"))
+] + [
     os.path.join(".github/actions", d, "action.yml")
     for d in sorted(os.listdir(os.path.join(ROOT, ".github", "actions")))
     if os.path.isdir(os.path.join(ROOT, ".github", "actions", d))
@@ -61,6 +66,49 @@ def _check_scalars(path, text):
             if ": " in val:
                 out.append("%s:%d 未加引号的值里含 ': '（YAML 会当映射分隔符）→ %s"
                            % (path, i, line.strip()[:70]))
+    return out
+
+
+BLOCK_HDR = re.compile(r"^(\s*)(?:-\s+)?[\w.\-]+:\s*[|>][+-]?\d?\s*$")
+# 块标量合法结束后的那一行，只能是这些形态：映射键、列表项、注释、文档分隔符
+KEYLIKE = re.compile(r"^\s*(?:-\s+\S|[A-Za-z_][\w.\-]*\s*:|#|---|\\.\\.\\.)\s*")
+
+
+def _check_block_scalar_break(path, text):
+    """②' 块标量提前结束（2026-11-20 事故，瘫痪看门狗 3 天）。
+
+    踩坑经过：`run: |` 里内嵌多行 python，其中两行写成了 0 缩进 →
+    块标量在那一行就结束了，后面变成"顶层散落文本"→ GitHub 判整个 workflow 无效。
+    症状极难定位：Actions 里会生成一次 **0 个 job 的失败运行**，日志接口返回 404，
+    工作流名字显示成文件路径，`schedule` 从此再也不触发（不报错、不告警）。
+    所以必须在推送前本地拦下：块标量结束后出现**更浅缩进却不像 YAML 结构**的行即报错。
+    """
+    out = []
+    lines = text.split("\n")
+    i = 0
+    while i < len(lines):
+        m = BLOCK_HDR.match(lines[i])
+        if not m:
+            i += 1
+            continue
+        base = len(m.group(1))
+        i += 1
+        while i < len(lines):
+            line = lines[i]
+            if line.strip() == "":
+                i += 1
+                continue
+            ind = len(line) - len(line.lstrip(" "))
+            if ind > base:          # 仍是块标量内容
+                i += 1
+                continue
+            if not KEYLIKE.match(line):
+                out.append(
+                    "%s:%d 块标量（父缩进 %d）后出现更浅缩进的非结构行 → 块标量提前结束，"
+                    "GitHub 会判 workflow 无效（0 job / 日志 404 / schedule 静默停摆）: %s"
+                    % (path, i + 1, base, line.strip()[:60])
+                )
+            break
     return out
 
 
@@ -100,6 +148,7 @@ def check(path):
         return []
     text = open(full, encoding="utf-8", errors="replace").read()
     out = _check_scalars(path, text)
+    out += _check_block_scalar_break(path, text)
     if path.endswith("workflows/build.yml") or path.endswith("build.yml"):
         out += _check_needs(path, text)
     if path.endswith("action.yml"):
