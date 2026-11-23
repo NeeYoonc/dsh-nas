@@ -114,14 +114,17 @@ pick_latest_tag() {
   echo "$TAGS_JSON" | python3 -c '
 import sys, json, re, os
 tags = [t["name"] for t in json.load(sys.stdin)]
-# 通道过滤（2026-11-05 自建仓定）：默认只认「正式版」= 非 alpha/beta 的 tag（rc 及以上）。
-#   上游没有 stable tag，rc 即最成熟通道；临时要开发版设 DSH_ALLOW_PRERELEASE=1。
-if os.environ.get("DSH_ALLOW_PRERELEASE", "0") != "1":
+# 通道过滤（2026-11-23 改）：默认**所有通道都追**（alpha / beta / rc / 正式版）。
+#   为什么改：官方 alpha 通常领先 rc 数天（0.2.3-alpha.1/alpha.2 早于同主版本 rc），
+#   只追正式版等于放弃提前验证；开发版产物一律标 prerelease（不占 Latest），
+#   套件源只读 /releases/latest，所以正式版用户看到的分发结果不受影响。
+#   要退回「只追正式版」：DSH_FORMAL_ONLY=1。
+if os.environ.get("DSH_FORMAL_ONLY", "0") == "1":
     _formal = [t for t in tags if "-alpha" not in t and "-beta" not in t]
     if _formal:
         tags = _formal
     else:
-        print("… 无 alpha/beta 之外的正式 tag，退回全部 tag（含开发版）", file=sys.stderr)
+        print("… DSH_FORMAL_ONLY=1 但没有正式 tag，退回全部 tag（含开发版）", file=sys.stderr)
 def parse(v):
     v = re.sub(r"\A[^0-9]*", "", v)   # 去掉 dsh-v 等非数字前缀
     pre = ""
