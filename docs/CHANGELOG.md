@@ -8,6 +8,8 @@
 
 - **预览版（alpha/beta）纳入自动构建发布**（用户 2026-11-23 明确要求）：`scripts/fetch-dsh-latest.sh` 默认改为**所有 tag 都参与挑选**，不再跳过上游 `alpha`/`beta`；开发版 Release 仍标 `prerelease`（不占 GitHub `Latest`，套件源只读 `releases/latest` 故不受影响）。要回到「只追正式版」设 `DSH_FORMAL_ONLY=1`（原 `DSH_ALLOW_PRERELEASE=1` 的语义现在是默认值）。
 
+- **预览版版本号带通道与序号**：`x.y.z-alpha.N` / `x.y.z-beta.N` 原来是退化成三段 `x.y.z`，导致同一主版本的 `alpha.1` 与 `alpha.2` 得到**完全相同**的套件版本号（套件中心不提示预览版之间的升级，两个包也无法区分）。改为 `alpha.N → x.y.z-1NN`、`beta.N → x.y.z-2NN`（序号补两位）；feature 段仍小于同主版本 rc（`0.2.3-103 < 0.2.3.1`），与已发布的 `alpha.1 = 0.2.3-101`、`alpha.2 = 0.2.3-102` 保持一致。仅影响预览版，正式版（rc）版本号一字节未变。
+
 ## 2026-11-20
 - **rc.4 / rc.5 为何没出包（两条独立故障，均已修）**：
   1. `test/apply-wizard-ports.test.sh` 依赖调用方环境：installer 母版第 2 行 `PACKAGE_NAME="$SYNOPKG_PKGNAME"` 在开了 `set -u` 的测试里，遇到 CI / 干净 shell 没有该变量就以 unbound variable 中断 `source` → `apply_wizard_ports` 从未定义 → 三个场景全退化成打包默认值。该测试 11-15 才接进 CI，之后每个构建都红在「守卫套件」，看门狗「同版本连续失败 ≥3 次」刹车随即生效，Release 停更在 rc.3。修法：场景子 shell 里显式 `export SYNOPKG_PKGNAME` 并临时 `set +u` 包住 `source`。

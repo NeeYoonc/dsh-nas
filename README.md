@@ -185,6 +185,7 @@ https://ssp.dnof.net/
 
 - **全通道自动追**（2026-11-23 起）—— 上游 `alpha` / `beta` / `rc` / 正式版**一律自动对齐**，不等正式版（官方 alpha 通常领先 rc 数天，等正式版等于放弃提前验证）。开发版 Release 标 `prerelease`，不占 GitHub `Latest`；套件源只读 `releases/latest`，所以正式版用户的分发结果不变。要退回「只追正式版」设 `DSH_FORMAL_ONLY=1`。
 - **版本号区分通道** —— 套件 `INFO` 版本必须是数字段（DSM 不接受 `-alpha.1`），映射规则：`x.y.z-rc.N → x.y.z.N`、`x.y.z-alpha.N → x.y.z-1NN`、`x.y.z-beta.N → x.y.z-2NN`、无后缀 → `x.y.z.99`；通道时序仍是 alpha < beta < rc。
+- **版本号区分通道** —— 套件 `INFO` 版本只接受数字段（DSM 不接受 `-alpha.1` 这类后缀），映射规则：`x.y.z-rc.N → x.y.z.N`、`x.y.z-alpha.N → x.y.z-1NN`、`x.y.z-beta.N → x.y.z-2NN`、无后缀 → `x.y.z.99`。这样套件中心能正确提示预览版之间的升级，且通道时序保持 alpha < beta < rc。
 - **架构成对** —— 正式版按 `x86_64` 与 `arm64` 各派发一次，同一 Release 下产出 **4 个产物**：`*_x86_64-<ver>.spk`、`*_x86-<ver>.fpk`、`*_armv8-<ver>.spk`、`*_arm-<ver>.fpk`。
 - **跟随上游** —— 看门狗每 30 分钟比对上游最新 tag（含 alpha/beta）与本仓对应 tag 的 Release；「不相等 + 无构建在跑」即自动派发双架构重建（**成功不节流**，上游一发新版就追，无冷却）；仅当同一版本连续失败 ≥ 3 次时暂停，等上游下一版或人工修复。
 
