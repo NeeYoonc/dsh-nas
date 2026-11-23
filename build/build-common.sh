@@ -374,29 +374,14 @@ fi
 #   群晖套件版本号不接受 -rc.N 这类后缀，但接受 4 段纯数字（参考 SynoCommunity
 #   的 4.2.0.3-11 等）。为了让 rc 版也能在套件中心提示更新：
 #     0.2.2-rc.2   → 0.2.2.2（rc 序号进第 4 段）
-#     alpha.N      → 0.2.2-1NN（通道位进 build 段：alpha=1xx、beta=2xx、序号补两位）
-#     beta.N       → 0.2.2-2NN
+#     alpha/beta   → 保持三段（0.2.2），rc 出现时提示升级
 #     无后缀正式版 → 0.2.2.99（哨兵，保证比同版本 rc 大）
-#   为什么开发版必须带序号（2026-11-23 实测）：原来 alpha/beta 一律退化成三段
-#   （0.2.3-alpha.1 与 0.2.3-alpha.2 都得到 0.2.3），两个包版本号完全相同 →
-#   套件中心不认为后一个能"更新"，两个 alpha 也无法区分。build 段参与比较，
-#   且 feature 段恒小于同主版本的 rc（0.2.3-102 < 0.2.3.1），通道顺序仍是
-#   alpha < beta < rc，符合上游发布时序。
 # ----------------------------------------------------------------------------
 PKG_VER="$(python3 -c "import json;print(json.load(open('$SRC/package.json'))['version'])")"
 MAIN_VER="$(echo "$PKG_VER" | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+')"
 RC_NUM="$(echo "$PKG_VER" | sed -nE 's/^[0-9]+\.[0-9]+\.[0-9]+-rc\.([0-9]+)$/\1/p')"
-PRE_CH="$(echo "$PKG_VER" | sed -nE 's/^[0-9]+\.[0-9]+\.[0-9]+-(alpha|beta)\.([0-9]+)$/\1 \2/p')"
 if [ -n "$RC_NUM" ]; then
   SPK_VERSION="${MAIN_VER}.${RC_NUM}"
-elif [ -n "$PRE_CH" ]; then
-  _ch="${PRE_CH% *}"; _n="${PRE_CH#* }"
-  case "$_ch" in
-    alpha) _base=1 ;;
-    beta)  _base=2 ;;
-    *)    _base=3 ;;
-  esac
-  SPK_VERSION="${MAIN_VER}-${_base}$(printf '%02d' "$_n")"
 elif echo "$PKG_VER" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
   SPK_VERSION="${MAIN_VER}.99"
 else
@@ -413,7 +398,7 @@ if [ -n "${SPK_VERSION_OVERRIDE:-}" ]; then
   SPK_VERSION="$SPK_VERSION_OVERRIDE"
 fi
 FPK_VERSION="${PKG_VER}"
-echo "官方版本 : $PKG_VER  |  SPK 版本: $SPK_VERSION（rc 序号进第 4 段 / alpha,beta 进 build 段；可覆盖）  |  FPK 版本: $FPK_VERSION（完整）"
+echo "官方版本 : $PKG_VER  |  SPK 版本: $SPK_VERSION（rc 序号进第 4 段；可覆盖）  |  FPK 版本: $FPK_VERSION（完整）"
 
 # commit hash（注入 DSH_CLIENT_COMMIT_HASH）
 COMMIT_HASH=""
